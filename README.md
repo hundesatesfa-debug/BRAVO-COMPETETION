@@ -21,6 +21,19 @@ npm run dev
 
 Build the production bundle with `npm run build`.
 
+## Deploy on Vercel
+
+Import this repository into Vercel with the repository root as the project root. The included [`vercel.json`](vercel.json) selects Vite, builds with `npm run build`, publishes `dist`, and routes app URLs such as `/login` and `/dashboard` back to the React app.
+
+Before deploying, add these environment variables in **Vercel → Project Settings → Environment Variables** for each environment you use (Production, Preview, and Development):
+
+- `VITE_SUPABASE_URL` — your Supabase project URL
+- `VITE_SUPABASE_PUBLISHABLE_KEY` — your Supabase publishable key
+
+These values are embedded in the browser build. Use only the public publishable key with RLS enabled; never add a Supabase secret or service-role key to a `VITE_` variable. Redeploy after changing environment variables.
+
+In Supabase **Authentication → URL Configuration**, set the Site URL to the production domain. Add the production and local URLs as allowed redirect URLs; add the Vercel preview URL pattern if you use preview deployments.
+
 ## Security foundation
 
 - Registration always creates a student role in a database trigger. Role assignment is not accepted from the browser.
