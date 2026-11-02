@@ -64,7 +64,7 @@ export default function AuthPage({ mode }) {
           if (!loadedAccount) throw new Error('Your account exists, but its profile could not be loaded. Confirm the database migration is installed.');
           navigate('/dashboard', { replace: true });
         } else {
-          setMessage('Your account is ready. Check your email to confirm your address, then log in.');
+          setMessage('Your account was created, but email confirmation is still enabled in Supabase. Turn off “Confirm email” under Authentication → Sign In / Providers → Email to log in without a verification email.');
         }
       } else {
         const { data, error: loginError } = await supabase.auth.signInWithPassword({ email: form.email.trim(), password: form.password });

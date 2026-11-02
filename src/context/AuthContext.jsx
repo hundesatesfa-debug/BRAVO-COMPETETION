@@ -4,13 +4,15 @@ import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 const AuthContext = createContext(null);
 
 async function loadAccount(user) {
-  const [{ data: profile, error: profileError }, { data: roleRow, error: roleError }] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, academic_level, stream, avatar_url').eq('id', user.id).single(),
-    supabase.from('user_roles').select('role').eq('user_id', user.id).single(),
+  const [{ data: profile, error: profileError }, { data: roleRows, error: roleError }] = await Promise.all([
+    supabase.from('profiles').select('id, full_name, academic_level, stream, phone_number, cbe_account_number').eq('id', user.id).single(),
+    supabase.from('user_roles').select('role').eq('user_id', user.id),
   ]);
   if (profileError) throw profileError;
   if (roleError) throw roleError;
-  return { user, profile, role: roleRow.role };
+  if (!roleRows?.length) throw new Error('Your account role could not be loaded.');
+  const role = roleRows.some((row) => row.role === 'admin') ? 'admin' : roleRows[0].role;
+  return { user, profile, role };
 }
 
 export function AuthProvider({ children }) {

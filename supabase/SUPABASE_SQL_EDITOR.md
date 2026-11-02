@@ -1,13 +1,17 @@
 # Supabase SQL Editor setup
 
-Use this query when setting up BR@VO in a **new Supabase project**. Supabase creates a PostgreSQL database with the project, so you do not need to create tables manually first.
+For a single paste-ready script on a **new Supabase project**, use [`SETUP.sql`](SETUP.sql). It contains the full BR@VO schema and policies. The query below is the base setup; if you use it instead, apply the competition migration separately as described below.
+
+Supabase creates a PostgreSQL database with the project, so you do not need to create tables manually first.
 
 1. Open your Supabase project and go to **SQL Editor**.
 2. Choose **New query**.
 3. Copy the complete SQL block below into the editor and select **Run**.
-4. Configure Auth email confirmation and redirect URLs in Supabase. Set the project URL and publishable key in `.env.local` using `.env.example` as a guide.
+4. In the Supabase dashboard, open **Authentication → Sign In / Providers → Email** and turn off **Confirm email** to let new accounts log in immediately without a verification email. Keep the site and redirect URLs configured for password-reset links. Set the project URL and publishable key in `.env.local` using `.env.example` as a guide.
 
-Run this setup query once on a new project. It creates the BR@VO tables, security policies, signup trigger, Ethiopian phone field, and CBE account field. Do not run it again where these objects already exist. For an existing project, apply only unapplied migrations, or use the Supabase CLI migration workflow.
+Run this setup query once on a new project. It creates the BR@VO profile and role tables, security policies, signup trigger, Ethiopian phone field, and CBE account field. Do not run it again where these objects already exist.
+
+After the base query, apply [`migrations/20261102172843_competition_workflows.sql`](migrations/20261102172843_competition_workflows.sql) once to add administrator competition management and student registrations. For a project already managed by Supabase migrations, apply the new migration with the CLI (`supabase db push`) instead of pasting it into the SQL Editor. Never apply the competition migration more than once.
 
 Registration accepts Ethio telecom numbers beginning with `09` and Safaricom Ethiopia numbers beginning with `07`, then stores them in `+251` format. The CBE account field requires 13 digits.
 

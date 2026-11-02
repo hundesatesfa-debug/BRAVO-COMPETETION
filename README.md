@@ -1,6 +1,6 @@
 # BR@VO
 
-BR@VO is a competition-centered academic platform. This repository currently implements **Phase 1: Foundation**: the React app shell, Supabase Auth, student registration and classification, account profiles, and the first RLS-protected database migration.
+BR@VO is a competition-centered academic platform. This repository includes the app foundation and a Supabase-backed competition workflow: administrators can manage events, and eligible students can register for them.
 
 ## Run locally
 
@@ -13,7 +13,7 @@ Copy `.env.example` to `.env.local`, then set:
 - `VITE_SUPABASE_URL` — your Supabase project URL
 - `VITE_SUPABASE_PUBLISHABLE_KEY` — the project's publishable key (safe for browser use when RLS is enabled)
 
-Apply the migration and configure email confirmation and redirect URLs as described in [`supabase/README.md`](supabase/README.md). Then start the development server:
+Apply the migration and turn off email confirmation as described in [`supabase/README.md`](supabase/README.md) if you want accounts to log in immediately after registration. Then start the development server:
 
 ```sh
 npm run dev
@@ -31,4 +31,4 @@ Build the production bundle with `npm run build`.
 
 ## Current scope
 
-The competition, payment, practice, examination, leaderboard, rewards, and AI workflows are not yet connected. The dashboard currently identifies the student's classification and account; future phases will add those workflows against verified backend data. No demo competitions or payment outcomes are fabricated.
+Competition management and student registration are connected after the latest Supabase migration is applied. Timed examinations, results and leaderboards, payments, rewards, and AI tutoring are not yet connected. Learning cards on the landing page are marked as previews; no demo events or payment outcomes are fabricated.
