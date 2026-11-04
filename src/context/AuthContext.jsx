@@ -5,7 +5,7 @@ const AuthContext = createContext(null);
 
 async function loadAccount(user) {
   const [{ data: profile, error: profileError }, { data: roleRows, error: roleError }] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, academic_level, stream, phone_number, cbe_account_number').eq('id', user.id).single(),
+    supabase.from('profiles').select('id, full_name, academic_level, stream, phone_number, university, department, academic_year, student_id').eq('id', user.id).single(),
     supabase.from('user_roles').select('role').eq('user_id', user.id),
   ]);
   if (profileError) throw profileError;

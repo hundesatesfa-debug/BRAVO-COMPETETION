@@ -198,43 +198,10 @@ export default function CompetitionWorkspace() {
     try {
       const { error: updateError } = await supabase.from('competitions').update({ status: nextStatus }).eq('id', competition.id);
       if (updateError) throw updateError;
-      setSuccess(nextStatus === 'published' ? 'Competition published for eligible students.' : 'Registration closed for this competition.');
+      setSuccess(nextStatus === 'published' ? 'Competition details published.' : 'Competition details closed.');
       await loadWorkspace();
     } catch (updateError) {
       setError(updateError.message || 'The competition status could not be changed.');
-    } finally {
-      setBusyId('');
-    }
-  }
-
-  async function register(competition) {
-    setBusyId(competition.id);
-    setError('');
-    setSuccess('');
-    try {
-      const { error: insertError } = await supabase.from('competition_registrations').insert({ competition_id: competition.id });
-      if (insertError) throw insertError;
-      setSuccess(`You are registered for ${competition.title}.`);
-      await loadWorkspace();
-    } catch (registerError) {
-      setError(registerError.message || 'Registration could not be completed.');
-    } finally {
-      setBusyId('');
-    }
-  }
-
-  async function withdraw(competition) {
-    setBusyId(competition.id);
-    setError('');
-    setSuccess('');
-    try {
-      const { error: deleteError } = await supabase.from('competition_registrations').delete()
-        .eq('competition_id', competition.id).eq('user_id', account.user.id);
-      if (deleteError) throw deleteError;
-      setSuccess(`Your registration for ${competition.title} was withdrawn.`);
-      await loadWorkspace();
-    } catch (withdrawError) {
-      setError(withdrawError.message || 'Your registration could not be withdrawn.');
     } finally {
       setBusyId('');
     }
@@ -248,16 +215,16 @@ export default function CompetitionWorkspace() {
   const draftCount = competitions.filter((competition) => competition.status === 'draft').length;
 
   return <section className="competition-workspace" aria-labelledby="competition-workspace-title">
-    <div className="competition-heading"><div><div className="eyebrow">{isAdmin ? 'ADMIN CONTROL CENTER' : 'YOUR ACADEMIC PATH'}</div><h2 id="competition-workspace-title">{isAdmin ? 'Competition management' : 'Competitions'}</h2><p>{isAdmin ? 'Create events, publish registration, and follow student sign-ups.' : 'Browse competitions matched to your level and stream.'}</p></div>{isAdmin && <button type="button" className="button button-primary" onClick={startNewCompetition}><Plus size={17} /> Create competition</button>}</div>
+    <div className="competition-heading"><div><div className="eyebrow">{isAdmin ? 'ADMIN CONTROL CENTER' : 'YOUR ACADEMIC PATH'}</div><h2 id="competition-workspace-title">{isAdmin ? 'Competition management' : 'Competitions'}</h2><p>{isAdmin ? 'Manage competition details. Student registration opens after payment verification is ready.' : 'Browse competition details matched to your academic profile. Paid registration is not open yet.'}</p></div>{isAdmin && <button type="button" className="button button-primary" onClick={startNewCompetition}><Plus size={17} /> Create competition</button>}</div>
 
-    {isAdmin && <div className="competition-stats"><div className="competition-stat"><span>Published</span><strong>{publishedCount}</strong></div><div className="competition-stat"><span>Drafts</span><strong>{draftCount}</strong></div><div className="competition-stat"><span>Student registrations</span><strong>{allRegistrations.length}</strong></div></div>}
+    {isAdmin && <div className="competition-stats"><div className="competition-stat"><span>Published</span><strong>{publishedCount}</strong></div><div className="competition-stat"><span>Drafts</span><strong>{draftCount}</strong></div><div className="competition-stat"><span>Stored registration records</span><strong>{allRegistrations.length}</strong></div></div>}
 
     {error && <Notice>{error}</Notice>}{success && <Notice tone="success">{success}</Notice>}
 
     {isAdmin && formOpen && <form id="competition-form" className="competition-form" onSubmit={saveCompetition}>
       <div className="competition-form-heading"><div><div className="eyebrow">{editingId ? 'UPDATE EVENT' : 'NEW EVENT'}</div><h3>{editingId ? 'Edit competition' : 'Create a competition'}</h3></div><button type="button" className="icon-button" aria-label="Close competition form" onClick={cancelForm}><X size={18} /></button></div>
       <div className="competition-form-grid"><label className="field-label">Competition title<input className="competition-input" required minLength={3} maxLength={100} value={form.title} onChange={(event) => updateForm('title', event.target.value)} placeholder="e.g. National Science Challenge" /></label>
-        <label className="field-label">Visibility<select className="competition-input" value={form.status} onChange={(event) => updateForm('status', event.target.value)}><option value="draft">Draft · admins only</option><option value="published">Published · students can register</option><option value="closed">Closed</option></select></label>
+        <label className="field-label">Visibility<select className="competition-input" value={form.status} onChange={(event) => updateForm('status', event.target.value)}><option value="draft">Draft · admins only</option><option value="published">Published · details visible</option><option value="closed">Closed</option></select></label>
         <label className="field-label">Academic level<select className="competition-input" value={form.academicLevel} onChange={(event) => updateForm('academicLevel', event.target.value)}><option value="">All levels</option><option value="grade_12">Grade 12</option><option value="freshman">University Freshman</option></select></label>
         <label className="field-label">Stream<select className="competition-input" value={form.stream} onChange={(event) => updateForm('stream', event.target.value)}><option value="">All streams</option><option value="natural_science">Natural Science</option><option value="social_science">Social Science</option></select></label>
         <label className="field-label">Registration deadline<input className="competition-input" type="datetime-local" required value={form.registrationDeadline} onChange={(event) => updateForm('registrationDeadline', event.target.value)} /></label>
@@ -269,20 +236,17 @@ export default function CompetitionWorkspace() {
     </form>}
 
     {loading ? <div className="competition-empty"><span className="loading-inline" /> Loading competitions…</div>
-      : visibleCompetitions.length === 0 ? <div className="competition-empty"><span className="empty-icon"><CalendarDays size={21} /></span><h3>{isAdmin ? 'No competitions yet' : 'No open competitions yet'}</h3><p>{isAdmin ? 'Create a competition draft, then publish it when registration is ready.' : 'New competitions for your academic level and stream will appear here.'}</p>{isAdmin && <button type="button" className="button button-outline" onClick={startNewCompetition}><Plus size={16} /> Create your first competition</button>}</div>
+      : visibleCompetitions.length === 0 ? <div className="competition-empty"><span className="empty-icon"><CalendarDays size={21} /></span><h3>{isAdmin ? 'No competitions yet' : 'No competition details yet'}</h3><p>{isAdmin ? 'Create a competition draft, then publish its details when they are ready.' : 'Published competition details for your academic profile will appear here.'}</p>{isAdmin && <button type="button" className="button button-outline" onClick={startNewCompetition}><Plus size={16} /> Create your first competition</button>}</div>
       : <div className="competition-list">{visibleCompetitions.map((competition) => {
         const registrants = allRegistrations.filter((registration) => registration.competition_id === competition.id);
         const hasRegistered = registrationIds.has(competition.id);
-        const canRegister = !isAdmin && registrationIsOpen(competition);
-        const canWithdraw = hasRegistered && competition.status === 'published'
-          && new Date(competition.registration_deadline).getTime() > Date.now();
-        const statusLabel = competition.status === 'draft' ? 'Draft' : competition.status === 'closed' ? 'Closed' : registrationIsOpen(competition) ? 'Open for registration' : 'Registration closed';
+        const statusLabel = competition.status === 'draft' ? 'Draft' : competition.status === 'closed' ? 'Closed' : registrationIsOpen(competition) ? 'Details published' : 'Registration closed';
         const showingParticipants = participantsFor === competition.id;
         return <article className="competition-card" key={competition.id}>
           <div className="competition-card-top"><span className={`competition-status status-${competition.status}`}>{statusLabel}</span><span className="competition-target">{getTargetLabel(competition)}</span></div>
           <h3>{competition.title}</h3><p className="competition-description">{competition.description}</p>
           <div className="competition-dates"><span><CalendarDays size={15} /> Starts {displayDate(competition.starts_at)}</span><span><Clock3 size={15} /> Register by {displayDate(competition.registration_deadline)}</span></div>
-          <div className="competition-card-footer">{isAdmin ? <><span className="registration-count"><UsersRound size={15} /> {registrants.length} registered</span><div className="competition-actions"><button type="button" className="button button-quiet button-compact" onClick={() => setParticipantsFor(showingParticipants ? '' : competition.id)}><UsersRound size={14} /> {showingParticipants ? 'Hide students' : 'View students'}</button><button type="button" className="button button-quiet button-compact" onClick={() => editCompetition(competition)}><Edit3 size={14} /> Edit</button><button type="button" className="button button-compact button-primary" onClick={() => updateStatus(competition)} disabled={busyId === competition.id}>{busyId === competition.id ? 'Updating…' : competition.status === 'published' ? 'Close registration' : 'Publish'}</button></div></> : <><span className="registration-count">{hasRegistered ? <><Check size={15} /> You are registered</> : canRegister ? 'Ready to join?' : statusLabel}</span><button type="button" className={`button ${hasRegistered ? 'button-quiet' : 'button-primary'} button-compact`} onClick={() => hasRegistered ? withdraw(competition) : register(competition)} disabled={busyId === competition.id || (hasRegistered ? !canWithdraw : !canRegister)}>{busyId === competition.id ? 'Please wait…' : hasRegistered ? canWithdraw ? 'Withdraw' : 'Registered' : 'Register'} {!hasRegistered && <ArrowRight size={15} />}</button></>}</div>
+          <div className="competition-card-footer">{isAdmin ? <><span className="registration-count"><UsersRound size={15} /> {registrants.length} stored sign-ups</span><div className="competition-actions"><button type="button" className="button button-quiet button-compact" onClick={() => setParticipantsFor(showingParticipants ? '' : competition.id)}><UsersRound size={14} /> {showingParticipants ? 'Hide students' : 'View stored records'}</button><button type="button" className="button button-quiet button-compact" onClick={() => editCompetition(competition)}><Edit3 size={14} /> Edit</button><button type="button" className="button button-compact button-primary" onClick={() => updateStatus(competition)} disabled={busyId === competition.id}>{busyId === competition.id ? 'Updating…' : competition.status === 'published' ? 'Unpublish' : 'Publish details'}</button></div></> : <span className="registration-count">{hasRegistered ? <><Check size={15} /> A past sign-up record exists; payment eligibility is unverified.</> : 'Paid registration will open after payment verification is available.'}</span>}</div>
           {isAdmin && showingParticipants && <div className="participant-list"><h4>Registered students</h4>{registrants.length === 0 ? <p>No students have registered for this event yet.</p> : registrants.map((registration) => {
             const profile = profilesById[registration.user_id];
             return <div className="participant-row" key={registration.user_id}><span className="participant-avatar">{(profile?.full_name || 'S').charAt(0).toUpperCase()}</span><span className="participant-name"><strong>{profile?.full_name || 'Student'}</strong><small>{levelLabels[profile?.academic_level] || 'Level unavailable'} · {streamLabels[profile?.stream] || 'Stream unavailable'}</small></span>{registration.created_at && <time>{displayDate(registration.created_at)}</time>}</div>;
