@@ -6,11 +6,23 @@ import DashboardPage from './pages/DashboardPage.jsx';
 import WelcomePage from './pages/WelcomePage.jsx';
 import { AccountRecoveryPage, ResetPasswordPage } from './pages/AccountRecoveryPage.jsx';
 import { LoadingScreen } from './components/UI.jsx';
+import AdminPage from './pages/AdminPage.jsx';
+import SuspendedPage from './pages/SuspendedPage.jsx';
 
 function ProtectedRoute({ children }) {
   const { account, loading } = useAuth();
   if (loading) return <LoadingScreen />;
-  return account ? children : <Navigate to="/login" replace />;
+  if (!account) return <Navigate to="/login" replace />;
+  if (account.profile?.account_status === 'suspended') return <SuspendedPage />;
+  return children;
+}
+
+function AdminRoute({ children }) {
+  const { account, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
+  if (!account) return <Navigate to="/login" replace />;
+  if (account.profile?.account_status === 'suspended') return <SuspendedPage />;
+  return account.role === 'admin' ? children : <Navigate to="/dashboard" replace />;
 }
 
 function PublicOnlyRoute({ children }) {
@@ -29,6 +41,16 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/welcome" element={<ProtectedRoute><WelcomePage /></ProtectedRoute>} />
       <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      <Route path="/study-room" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      <Route path="/materials" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      <Route path="/bravos" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      <Route path="/competitions" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      <Route path="/exams" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      <Route path="/leaderboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      <Route path="/rewards" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      <Route path="/notifications" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      <Route path="/admin" element={<AdminRoute><Navigate to="/admin/overview" replace /></AdminRoute>} />
+      <Route path="/admin/:section" element={<AdminRoute><AdminPage /></AdminRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

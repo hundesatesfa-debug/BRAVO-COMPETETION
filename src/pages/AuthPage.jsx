@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import {
-  ArrowLeft, ArrowRight, BookOpen, Building2, Eye, EyeOff,
+  ArrowLeft, ArrowRight, CreditCard, Eye, EyeOff,
   GraduationCap, LockKeyhole, Mail, Phone, ShieldCheck,
   UserRound, Layers
 } from 'lucide-react';
@@ -31,8 +31,8 @@ export default function AuthPage({ mode }) {
     fullName: '',
     contact: '',
     password: '',
-    university: '',
-    department: '',
+    cbeAccountNumber: '',
+    schoolName: '',
     academicLevelId: '',
     streamId: '',
     verificationCode: '',
@@ -59,7 +59,7 @@ export default function AuthPage({ mode }) {
 
     if (!loadedAccount) {
       throw new Error(
-        'Your account profile could not be loaded. Check your database setup.'
+        'Sign-in succeeded, but no account profile was returned. Run the current Supabase setup SQL and confirm this user has a profile row.'
       );
     }
 
@@ -122,23 +122,25 @@ export default function AuthPage({ mode }) {
       }
 
       if (isRegister) {
-        const university = form.university.trim();
-        const department = form.department.trim();
+        const academicLevel = form.academicLevelId === '1' ? 'grade_12' : 'freshman';
+        const stream = form.streamId === '1' ? 'natural_science' : 'social_science';
+        const schoolName = form.schoolName.trim();
+        const cbeAccountNumber = form.cbeAccountNumber.trim();
 
         if (!form.fullName.trim()) {
           throw new Error('Enter your full name.');
         }
 
-        if (!university || university.length > 150) {
-          throw new Error('Enter your university (up to 150 characters).');
-        }
-
-        if (!department || department.length > 120) {
-          throw new Error('Enter your department (up to 120 characters).');
-        }
-
         if (!form.academicLevelId) {
           throw new Error('Select your academic level.');
+        }
+
+        if (academicLevel === 'grade_12' && (schoolName.length < 2 || schoolName.length > 150)) {
+          throw new Error('Enter your school name (2 to 150 characters).');
+        }
+
+        if (!/^\d{13}$/.test(cbeAccountNumber)) {
+          throw new Error('Enter your 13-digit CBE account number.');
         }
 
         if (!form.streamId) {
@@ -156,8 +158,10 @@ export default function AuthPage({ mode }) {
             data: {
               full_name: form.fullName.trim(),
               phone: authMethod === 'phone' ? contact : null,
-              university,
-              department,
+              academic_level: academicLevel,
+              stream,
+              school_name: academicLevel === 'grade_12' ? schoolName : null,
+              cbe_account_number: cbeAccountNumber,
               academic_level_id: Number(form.academicLevelId),
               stream_id: Number(form.streamId),
             },
@@ -333,42 +337,16 @@ export default function AuthPage({ mode }) {
             {isRegister && !verificationPending && (
               <div className="student-fields">
                 <label className="field-label">
-                  University
-                  <div className="input-wrap">
-                    <Building2 size={17} />
-                    <input
-                      autoComplete="organization"
-                      required
-                      maxLength={150}
-                      value={form.university}
-                      onChange={(event) => update('university', event.target.value)}
-                      placeholder="Your university"
-                    />
-                  </div>
-                </label>
-
-                <label className="field-label">
-                  Department
-                  <div className="input-wrap">
-                    <BookOpen size={17} />
-                    <input
-                      required
-                      maxLength={120}
-                      value={form.department}
-                      onChange={(event) => update('department', event.target.value)}
-                      placeholder="Your department"
-                    />
-                  </div>
-                </label>
-
-                <label className="field-label">
                   Academic level
                   <div className="input-wrap">
                     <GraduationCap size={17} />
                     <select
                       required
                       value={form.academicLevelId}
-                      onChange={(event) => update('academicLevelId', event.target.value)}
+                      onChange={(event) => {
+                        update('academicLevelId', event.target.value);
+                        if (event.target.value !== '1') update('schoolName', '');
+                      }}
                     >
                       <option value="">Select academic level</option>
                       <option value="1">Grade 12</option>
@@ -376,6 +354,24 @@ export default function AuthPage({ mode }) {
                     </select>
                   </div>
                 </label>
+
+                {form.academicLevelId === '1' && (
+                  <label className="field-label">
+                    School name
+                    <div className="input-wrap">
+                      <GraduationCap size={17} />
+                      <input
+                        autoComplete="organization"
+                        required
+                        minLength={2}
+                        maxLength={150}
+                        value={form.schoolName}
+                        onChange={(event) => update('schoolName', event.target.value)}
+                        placeholder="Your school"
+                      />
+                    </div>
+                  </label>
+                )}
 
                 <label className="field-label">
                   Stream
@@ -390,6 +386,27 @@ export default function AuthPage({ mode }) {
                       <option value="1">Natural</option>
                       <option value="2">Social</option>
                     </select>
+                  </div>
+                </label>
+
+                <label className="field-label">
+                  CBE account number
+                  <div className="input-wrap">
+                    <CreditCard size={17} />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      required
+                      minLength={13}
+                      maxLength={13}
+                      pattern="[0-9]{13}"
+                      value={form.cbeAccountNumber}
+                      onChange={(event) =>
+                        update('cbeAccountNumber', event.target.value.replace(/\D/g, '').slice(0, 13))
+                      }
+                      placeholder="13-digit CBE account number"
+                    />
                   </div>
                 </label>
               </div>

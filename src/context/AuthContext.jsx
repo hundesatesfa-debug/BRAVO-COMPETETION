@@ -11,6 +11,55 @@ import {
 import { hasSupabaseConfig, supabase } from '../lib/supabase.js';
 
 const AuthContext = createContext(null);
+const OFFLINE_PROFILE_PREFIX = 'bravo-offline-profile:';
+
+function cacheOfflineProfile(account) {
+  try {
+    localStorage.setItem(`${OFFLINE_PROFILE_PREFIX}${account.user.id}`, JSON.stringify({
+      role: account.role,
+      profile: {
+        id: account.user.id,
+        full_name: account.profile.full_name,
+        academic_level: account.profile.academic_level,
+        stream: account.profile.stream,
+        school_name: account.profile.school_name,
+        account_status: account.profile.account_status || 'active',
+        account_status_note: account.profile.account_status_note || null,
+      },
+    }));
+  } catch {
+    // Browser storage may be disabled; online sign-in still works.
+  }
+}
+
+function readOfflineProfile(user) {
+  try {
+    const cached = JSON.parse(localStorage.getItem(`${OFFLINE_PROFILE_PREFIX}${user.id}`) || 'null');
+    if (!cached?.profile || !['student', 'admin'].includes(cached.role)) return null;
+    return {
+      user,
+      role: cached.role,
+      profile: {
+        ...cached.profile,
+        phone: user.phone || null,
+        cbe_account_number: null,
+      },
+      offline: true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function lookupClassificationName(table, id) {
+  if (id == null || !supabase) return null;
+  const { data, error } = await supabase
+    .from(table)
+    .select('name')
+    .eq('id', id)
+    .maybeSingle();
+  return error ? null : data?.name || null;
+}
 
 async function loadAccount(user) {
   const [
@@ -19,16 +68,7 @@ async function loadAccount(user) {
   ] = await Promise.all([
     supabase
       .from('profiles')
-      .select(`
-        id,
-        full_name,
-        phone,
-        university,
-        department,
-        academic_level_id,
-        stream_id,
-        created_at
-      `)
+      .select('*')
       .eq('id', user.id)
       .single(),
 
@@ -38,43 +78,44 @@ async function loadAccount(user) {
       .eq('user_id', user.id),
   ]);
 
+  if (profileError?.code === 'PGRST116') {
+    throw new Error('No profile row exists for this account. Run the latest supabase/SETUP.sql in your Supabase SQL Editor to repair existing accounts.');
+  }
   if (profileError) throw profileError;
   if (roleError) throw roleError;
 
-  if (!roleRows?.length) {
-    throw new Error('Your account role could not be loaded.');
-  }
-
-  const [
-    { data: academicLevel, error: levelError },
-    { data: stream, error: streamError },
-  ] = await Promise.all([
-    supabase
-      .from('academic_levels')
-      .select('id, name')
-      .eq('id', profile.academic_level_id)
-      .maybeSingle(),
-
-    supabase
-      .from('streams')
-      .select('id, name')
-      .eq('id', profile.stream_id)
-      .maybeSingle(),
+  const [levelLookup, streamLookup] = await Promise.all([
+    profile.academic_level || profile.academic_level_id == null
+      ? Promise.resolve(null)
+      : lookupClassificationName('academic_levels', profile.academic_level_id),
+    profile.stream || profile.stream_id == null
+      ? Promise.resolve(null)
+      : lookupClassificationName('streams', profile.stream_id),
   ]);
 
-  if (levelError) throw levelError;
-  if (streamError) throw streamError;
-
-  const role = roleRows.some((row) => row.role === 'admin')
+  const role = roleRows?.some((row) => row.role === 'admin')
     ? 'admin'
-    : roleRows[0].role;
+    : roleRows?.[0]?.role || 'student';
+  const rawLevel = profile.academic_level ?? profile.academic_level_id ?? null;
+  const rawStream = profile.stream ?? profile.stream_id ?? null;
 
   return {
     user,
     profile: {
       ...profile,
-      academic_level: academicLevel?.name ?? null,
-      stream: stream?.name ?? null,
+      phone: profile.phone_number || profile.phone || user.phone || null,
+      school_name: profile.school_name || null,
+      cbe_account_number: profile.cbe_account_number || null,
+      academic_level: rawLevel === 'grade_12' || rawLevel === 'Grade 12'
+        ? 'Grade 12'
+        : rawLevel === 'freshman' || rawLevel === 'University Freshman'
+          ? 'University Freshman'
+          : levelLookup || rawLevel,
+      stream: rawStream === 'natural_science' || rawStream === 'Natural Science'
+        ? 'Natural Science'
+        : rawStream === 'social_science' || rawStream === 'Social Science'
+          ? 'Social Science'
+          : streamLookup || rawStream,
     },
     role,
   };
@@ -95,12 +136,19 @@ export function AuthProvider({ children }) {
 
     try {
       const nextAccount = await loadAccount(user);
+      cacheOfflineProfile(nextAccount);
       setAccount(nextAccount);
       return nextAccount;
     } catch (error) {
+      const cachedAccount = readOfflineProfile(user);
+      if (cachedAccount) {
+        setAccountError('Using the saved profile while BRAVO is offline.');
+        setAccount(cachedAccount);
+        return cachedAccount;
+      }
       setAccountError(error.message || 'Your profile could not be loaded.');
       setAccount(null);
-      return null;
+      throw error;
     }
   }, []);
 
@@ -140,7 +188,7 @@ export function AuthProvider({ children }) {
 
       setTimeout(() => {
         if (active) {
-          refreshAccount(session.user).finally(() => {
+          refreshAccount(session.user).catch(() => {}).finally(() => {
             if (active) setLoading(false);
           });
         }
@@ -160,8 +208,13 @@ export function AuthProvider({ children }) {
 
     if (error) throw error;
 
+    try {
+      localStorage.removeItem(`${OFFLINE_PROFILE_PREFIX}${account?.user.id}`);
+    } catch {
+      // The auth session is already cleared; local profile cleanup is best-effort.
+    }
     setAccount(null);
-  }, []);
+  }, [account]);
 
   const value = useMemo(() => ({
     account,

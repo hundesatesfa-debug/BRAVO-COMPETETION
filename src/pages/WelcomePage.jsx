@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 const onboarding = [
   { icon: Trophy, title: 'Join a competition', text: 'Browse competitions that are open to your academic profile and read the entry rules first.' },
   { icon: CreditCard, title: 'Submit your payment', text: 'Pay using the published Telebirr or CBE Birr instructions, then upload the receipt for an administrator to verify.' },
-  { icon: BookOpenCheck, title: 'Prepare with your materials', text: 'The study room is being built to keep your lecture documents on your device by default, including for offline study.' },
+  { icon: BookOpenCheck, title: 'Prepare with your materials', text: 'Add PDFs and presentations to your Study Room. They stay in your browser and open even when you are offline.' },
   { icon: WalletCards, title: 'Track your Bravos', text: 'Bravos measure study engagement and daily consistency. They are not money and do not count as exam marks.' },
   { icon: FileCheck2, title: 'Take scheduled exams', text: 'Competition results are based on examination performance. Rankings and reward calculations are finalized on the server.' },
   { icon: GraduationCap, title: 'Review results and rewards', text: 'If you qualify, an administrator records your manual payout and transaction reference in your competition history.' },

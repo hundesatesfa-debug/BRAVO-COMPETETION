@@ -1,18 +1,40 @@
 
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import {
-  BookOpen, Building2, ChevronDown, Command, GraduationCap,
-  Layers, LogOut, Mail, Phone, ShieldCheck, Trophy, UserRound
+  Bell, BookOpen, CalendarDays, ChevronDown, Command, CreditCard, GraduationCap, Layers, LibraryBig,
+  LogOut, Mail, Phone, ShieldCheck, Trophy, UserRound, WalletCards
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Brand, Notice } from '../components/UI.jsx';
-import CompetitionWorkspace from '../components/CompetitionWorkspace.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { supabase } from '../lib/supabase.js';
+import BravoWalletPage from './BravoWalletPage.jsx';
+import StudentOverview from './StudentOverview.jsx';
+import CompetitionPage from './CompetitionPage.jsx';
+import ExamPage from './ExamPage.jsx';
+import StudentResultsPage from './StudentResultsPage.jsx';
+import NotificationsPage from './NotificationsPage.jsx';
+
+const StudyRoomPage = lazy(() => import('./StudyRoomPage.jsx'));
+
+const workspaceLinks = [
+  { to: '/dashboard', label: 'Overview', icon: Command, end: true },
+  { to: '/study-room', label: 'Study Room', icon: BookOpen },
+  { to: '/materials', label: 'My Materials', icon: LibraryBig },
+  { to: '/bravos', label: 'Bravo Wallet', icon: WalletCards },
+  { to: '/competitions', label: 'Competitions', icon: Trophy },
+  { to: '/exams', label: 'Examinations', icon: CalendarDays },
+  { to: '/leaderboard', label: 'Leaderboard', icon: GraduationCap },
+  { to: '/rewards', label: 'Rewards', icon: CreditCard },
+  { to: '/notifications', label: 'Notifications', icon: Bell },
+];
 
 export default function DashboardPage() {
   const { account, signOut, refreshAccount } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isOverview = location.pathname === '/dashboard';
+  const activeTitle = workspaceLinks.find((item) => item.to === location.pathname)?.label || 'Overview';
 
   const [profileOpen, setProfileOpen] = useState(false);
   const [name, setName] = useState(account?.profile.full_name ?? '');
@@ -42,8 +64,12 @@ export default function DashboardPage() {
     if (updateError) {
       setError(updateError.message);
     } else {
-      await refreshAccount(account.user);
-      setSuccess('Your profile is updated.');
+      try {
+        await refreshAccount(account.user);
+        setSuccess('Your profile is updated.');
+      } catch (refreshError) {
+        setError(`Your name was saved, but the account profile could not be refreshed: ${refreshError.message}`);
+      }
     }
 
     setSaving(false);
@@ -74,11 +100,14 @@ export default function DashboardPage() {
         <div className="sidebar-label">WORKSPACE</div>
 
         <nav className="sidebar-nav">
-          <Link className="sidebar-item active" to="/dashboard">
-            <Command size={17} />
-            Overview
-            <span className="nav-active-mark" />
-          </Link>
+          {workspaceLinks.map(({ to, label, icon: Icon, end }) => (
+            <NavLink key={to} className={({ isActive }) => `sidebar-item${isActive ? ' active' : ''}`} to={to} end={end}>
+              <Icon size={17} />
+              {label}
+              <span className="nav-active-mark" />
+            </NavLink>
+          ))}
+          {account?.role === 'admin' && <NavLink className={({ isActive }) => `sidebar-item${isActive ? ' active' : ''}`} to="/admin/overview"><ShieldCheck size={17} />Admin console<span className="nav-active-mark" /></NavLink>}
         </nav>
 
         <div className="sidebar-bottom">
@@ -106,7 +135,7 @@ export default function DashboardPage() {
           <div className="breadcrumb">
             <span>BRAVO Academy</span>
             <span className="crumb-slash">/</span>
-            <strong>Overview</strong>
+            <strong>{activeTitle}</strong>
           </div>
 
           <div className="topbar-right">
@@ -131,7 +160,7 @@ export default function DashboardPage() {
         </header>
 
         <div className="dashboard-content">
-          <div className="dashboard-welcome">
+          {isOverview && <div className="dashboard-welcome">
             <div>
               <div className="eyebrow">
                 <span className="live-dot" /> YOUR BRAVO ACADEMY SPACE
@@ -153,27 +182,25 @@ export default function DashboardPage() {
               <Trophy size={25} />
               <span>STUDY<br />WITH PURPOSE</span>
             </div>
-          </div>
+          </div>}
 
           {error && <Notice>{error}</Notice>}
           {success && <Notice tone="success">{success}</Notice>}
 
-          <section className="profile-summary">
+          {isOverview && <section className="profile-summary">
             <div className="profile-main">
               <div className="avatar-large">
                 <GraduationCap size={24} />
               </div>
 
               <div>
-                <div className="profile-kicker">YOUR UNIVERSITY</div>
+                <div className="profile-kicker">{account?.profile.academic_level === 'Grade 12' ? 'YOUR SCHOOL' : 'YOUR ACADEMIC LEVEL'}</div>
                 <h2>
-                  {account?.profile.university || 'University profile pending'}
+                  {account?.profile.academic_level === 'Grade 12'
+                    ? account?.profile.school_name || 'School profile pending'
+                    : account?.profile.academic_level || 'Academic profile pending'}
                 </h2>
                 <p>
-                  {account?.profile.department || 'Department not set'}
-                  <span className="profile-separator"> · </span>
-                  {account?.profile.academic_level || 'Academic level not set'}
-                  <span className="profile-separator"> · </span>
                   {account?.profile.stream || 'Stream not set'}
                 </p>
               </div>
@@ -188,7 +215,7 @@ export default function DashboardPage() {
               <UserRound size={16} />
               {profileOpen ? 'Hide profile' : 'View profile'}
             </button>
-          </section>
+          </section>}
 
           {profileOpen && (
             <section className="profile-edit" id="profile-details">
@@ -226,30 +253,26 @@ export default function DashboardPage() {
 
                 <div className="profile-detail">
                   <span className="profile-detail-label">
-                    <Building2 size={14} /> University
-                  </span>
-                  <strong>{account?.profile.university || 'Not set'}</strong>
-                </div>
-
-                <div className="profile-detail">
-                  <span className="profile-detail-label">
-                    <BookOpen size={14} /> Department
-                  </span>
-                  <strong>{account?.profile.department || 'Not set'}</strong>
-                </div>
-
-                <div className="profile-detail">
-                  <span className="profile-detail-label">
                     <GraduationCap size={14} /> Academic level
                   </span>
                   <strong>{account?.profile.academic_level || 'Not set'}</strong>
                 </div>
+
+                {account?.profile.academic_level === 'Grade 12' && <div className="profile-detail">
+                  <span className="profile-detail-label"><BookOpen size={14} /> School</span>
+                  <strong>{account?.profile.school_name || 'Not set'}</strong>
+                </div>}
 
                 <div className="profile-detail">
                   <span className="profile-detail-label">
                     <Layers size={14} /> Stream
                   </span>
                   <strong>{account?.profile.stream || 'Not set'}</strong>
+                </div>
+
+                <div className="profile-detail">
+                  <span className="profile-detail-label"><WalletCards size={14} /> CBE account</span>
+                  <strong>{account?.profile.cbe_account_number || 'Not set'}</strong>
                 </div>
 
                 <div className="profile-detail profile-detail-id">
@@ -287,7 +310,14 @@ export default function DashboardPage() {
             </section>
           )}
 
-          <CompetitionWorkspace />
+          {isOverview && account?.role === 'student' && <StudentOverview userId={account.user.id} />}
+          {(location.pathname === '/study-room' || location.pathname === '/materials') && <Suspense fallback={<div className="study-empty-state"><span className="loading-inline" /> Loading your study workspace…</div>}><StudyRoomPage /></Suspense>}
+          {location.pathname === '/bravos' && <BravoWalletPage />}
+          {location.pathname === '/competitions' && <CompetitionPage />}
+          {location.pathname === '/exams' && <ExamPage />}
+          {location.pathname === '/leaderboard' && <StudentResultsPage mode="leaderboard" />}
+          {location.pathname === '/rewards' && <StudentResultsPage mode="rewards" />}
+          {location.pathname === '/notifications' && <NotificationsPage />}
 
           <footer className="dashboard-footer">
             <Brand compact />
