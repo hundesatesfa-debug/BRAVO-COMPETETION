@@ -25,6 +25,7 @@ function cacheOfflineProfile(account) {
         school_name: account.profile.school_name,
         account_status: account.profile.account_status || 'active',
         account_status_note: account.profile.account_status_note || null,
+        has_verified_payment: Boolean(account.profile.has_verified_payment),
       },
     }));
   } catch {
@@ -43,6 +44,7 @@ function readOfflineProfile(user) {
         ...cached.profile,
         phone: user.phone || null,
         cbe_account_number: null,
+        has_verified_payment: Boolean(cached.profile.has_verified_payment),
       },
       offline: true,
     };
@@ -65,6 +67,7 @@ async function loadAccount(user) {
   const [
     { data: profile, error: profileError },
     { data: roleRows, error: roleError },
+    { data: paymentRows, error: paymentError },
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -76,6 +79,13 @@ async function loadAccount(user) {
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id),
+
+    supabase
+      .from('payments')
+      .select('status')
+      .eq('user_id', user.id)
+      .eq('status', 'verified')
+      .limit(1),
   ]);
 
   if (profileError?.code === 'PGRST116') {
@@ -83,6 +93,7 @@ async function loadAccount(user) {
   }
   if (profileError) throw profileError;
   if (roleError) throw roleError;
+  if (paymentError) throw paymentError;
 
   const [levelLookup, streamLookup] = await Promise.all([
     profile.academic_level || profile.academic_level_id == null
@@ -98,6 +109,7 @@ async function loadAccount(user) {
     : roleRows?.[0]?.role || 'student';
   const rawLevel = profile.academic_level ?? profile.academic_level_id ?? null;
   const rawStream = profile.stream ?? profile.stream_id ?? null;
+  const hasVerifiedPayment = role === 'student' ? Boolean(paymentRows?.length) : true;
 
   return {
     user,
@@ -106,6 +118,7 @@ async function loadAccount(user) {
       phone: profile.phone_number || profile.phone || user.phone || null,
       school_name: profile.school_name || null,
       cbe_account_number: profile.cbe_account_number || null,
+      has_verified_payment: hasVerifiedPayment,
       academic_level: rawLevel === 'grade_12' || rawLevel === 'Grade 12'
         ? 'Grade 12'
         : rawLevel === 'freshman' || rawLevel === 'University Freshman'

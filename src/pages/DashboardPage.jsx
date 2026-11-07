@@ -4,7 +4,7 @@ import {
   Bell, BookOpen, CalendarDays, ChevronDown, Command, CreditCard, GraduationCap, Layers, LibraryBig,
   LogOut, Mail, Phone, ShieldCheck, Trophy, UserRound, WalletCards
 } from 'lucide-react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Brand, Notice } from '../components/UI.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { supabase } from '../lib/supabase.js';
@@ -33,8 +33,14 @@ export default function DashboardPage() {
   const { account, signOut, refreshAccount } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const paymentLocked = account?.role === 'student' && !account?.profile?.has_verified_payment;
+  const visibleWorkspaceLinks = paymentLocked ? workspaceLinks.filter((item) => ['/dashboard', '/competitions'].includes(item.to)) : workspaceLinks;
   const isOverview = location.pathname === '/dashboard';
-  const activeTitle = workspaceLinks.find((item) => item.to === location.pathname)?.label || 'Overview';
+  const activeTitle = visibleWorkspaceLinks.find((item) => item.to === location.pathname)?.label || 'Overview';
+
+  if (paymentLocked && !['/dashboard', '/competitions'].includes(location.pathname)) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const [profileOpen, setProfileOpen] = useState(false);
   const [name, setName] = useState(account?.profile.full_name ?? '');
@@ -100,7 +106,7 @@ export default function DashboardPage() {
         <div className="sidebar-label">WORKSPACE</div>
 
         <nav className="sidebar-nav">
-          {workspaceLinks.map(({ to, label, icon: Icon, end }) => (
+          {visibleWorkspaceLinks.map(({ to, label, icon: Icon, end }) => (
             <NavLink key={to} className={({ isActive }) => `sidebar-item${isActive ? ' active' : ''}`} to={to} end={end}>
               <Icon size={17} />
               {label}
@@ -186,6 +192,7 @@ export default function DashboardPage() {
 
           {error && <Notice>{error}</Notice>}
           {success && <Notice tone="success">{success}</Notice>}
+          {paymentLocked && <Notice tone="warning">Your account is still awaiting payment verification. You can review your profile and complete the payment step to unlock the full student workspace.</Notice>}
 
           {isOverview && <section className="profile-summary">
             <div className="profile-main">
