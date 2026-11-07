@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Clock3, CreditCard, FileCheck2, Trophy, UploadCloud, UsersRound } from 'lucide-react';
+import { Check, Clock3, CreditCard, FileCheck2, Link2, Trophy, UploadCloud, UsersRound } from 'lucide-react';
 import { Notice } from '../components/UI.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { supabase } from '../lib/supabase.js';
@@ -46,6 +46,7 @@ export default function CompetitionPage() {
   const [payments, setPayments] = useState({});
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState('');
+  const [selectedMethod, setSelectedMethod] = useState('telebirr');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -209,29 +210,67 @@ export default function CompetitionPage() {
 
                 {needsPayment && open && (
                   <form className="operational-form" onSubmit={(event) => submitPayment(event, competition)}>
-                    <div className="operational-form-heading"><CreditCard size={18} /><div><strong>Submit entry payment</strong><span>Pay externally, then provide the reference and receipt.</span></div></div>
-                    <div className="competition-form-grid">
-                      <label className="field-label">Payment method
-                        <select className="competition-input" name="method" required defaultValue="">
-                          <option value="" disabled>Choose a configured method</option>
-                          {instructions.telebirr_instructions && <option value="telebirr">Telebirr</option>}
-                          {instructions.cbe_birr_instructions && <option value="cbe_birr">CBE Birr</option>}
-                        </select>
-                      </label>
-                      <div className="payment-instruction-box">
-                        {instructions.telebirr_instructions && <p><strong>Telebirr:</strong> {instructions.telebirr_instructions}</p>}
-                        {instructions.cbe_birr_instructions && <p><strong>CBE Birr:</strong> {instructions.cbe_birr_instructions}</p>}
+                    <div className="operational-form-heading"><CreditCard size={18} /><div><strong>Pay {Number(competition.entry_fee_etb).toFixed(0)} ETB</strong><span>Submit the proof after transferring through the active account below.</span></div></div>
+
+                    <div className="competition-form-grid" style={{ display: 'grid', gap: '18px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
+                        {instructions.telebirr_instructions && (
+                          <button type="button" className={`button ${selectedMethod === 'telebirr' ? 'button-primary' : 'button-quiet'}`} style={{ justifyContent: 'center', minHeight: 52 }} onClick={() => setSelectedMethod('telebirr')}>
+                            <span style={{ marginRight: 8 }}>📱</span> Telebirr
+                          </button>
+                        )}
+                        {instructions.cbe_birr_instructions && (
+                          <button type="button" className={`button ${selectedMethod === 'cbe_birr' ? 'button-primary' : 'button-quiet'}`} style={{ justifyContent: 'center', minHeight: 52 }} onClick={() => setSelectedMethod('cbe_birr')}>
+                            <span style={{ marginRight: 8 }}>🏦</span> CBE / Bank
+                          </button>
+                        )}
                       </div>
-                      <label className="field-label">Transaction reference
-                        <input className="competition-input" name="reference" required minLength={3} maxLength={120} autoComplete="off" placeholder="Receipt / transaction ID" />
-                      </label>
-                      <label className="field-label">Payment receipt
-                        <input className="competition-input" name="receipt" required type="file" accept="image/jpeg,image/png,image/webp,application/pdf" />
-                      </label>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
+                        <div className="payment-instruction-box" style={{ padding: '18px 16px' }}>
+                          <div style={{ color: '#a7b1c0', fontSize: 12, marginBottom: 8 }}>Account name</div>
+                          <div style={{ fontSize: 24, fontWeight: 800, color: '#f5f7fb' }}>
+                            {selectedMethod === 'cbe_birr' ? 'Atenaf' : 'Atenaf'}
+                          </div>
+                        </div>
+
+                        <div className="payment-instruction-box" style={{ padding: '18px 16px' }}>
+                          <div style={{ color: '#a7b1c0', fontSize: 12, marginBottom: 8 }}>{selectedMethod === 'cbe_birr' ? 'CBE account number' : 'Telebirr number'}</div>
+                          <div style={{ fontSize: 24, fontWeight: 800, color: '#ff8a3d' }}>
+                            {selectedMethod === 'cbe_birr' ? '1000516132837' : '0900000000'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="payment-instruction-box" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 16px' }}>
+                        <span style={{ color: '#b7c2d0' }}>Exact amount to transfer:</span>
+                        <strong style={{ fontSize: 28, color: '#f5f7fb' }}>{Number(competition.entry_fee_etb).toFixed(0)} ETB</strong>
+                      </div>
+
+                      <div style={{ display: 'grid', gap: 10, color: '#dfe6f2' }}>
+                        <div>1. Transfer exactly {Number(competition.entry_fee_etb).toFixed(0)} ETB to the account above.</div>
+                        <div>2. Copy the official receipt link from the confirmation SMS.</div>
+                        <div>3. Paste the receipt link below and click Verify payment.</div>
+                      </div>
+
+                      <div style={{ display: 'grid', gap: 8 }}>
+                        <label className="field-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <Link2 size={16} /> Receipt link
+                        </label>
+                        <input className="competition-input" name="reference" required minLength={3} maxLength={220} autoComplete="off" placeholder="https://mreceipt.cbe.com.et/..." />
+                      </div>
+
+                      <div style={{ display: 'grid', gap: 8 }}>
+                        <label className="field-label">Payment proof
+                          <input className="competition-input" name="receipt" required type="file" accept="image/jpeg,image/png,image/webp,application/pdf" />
+                        </label>
+                      </div>
+
+                      <input type="hidden" name="method" value={selectedMethod} />
                     </div>
-                    <p className="field-hint">The screenshot is evidence for review. Registration is not confirmed until an administrator checks the transaction.</p>
+
                     <div className="competition-form-actions"><button className="button button-primary" type="submit" disabled={busyId === competition.registration_id}>
-                      <UploadCloud size={15} /> {busyId === competition.registration_id ? 'Submitting…' : 'Submit for verification'}
+                      <UploadCloud size={15} /> {busyId === competition.registration_id ? 'Submitting…' : 'Verify payment & activate'}
                     </button></div>
                   </form>
                 )}

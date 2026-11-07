@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
 import LandingPage from './pages/LandingPage.jsx';
 import AuthPage from './pages/AuthPage.jsx';
@@ -9,18 +9,12 @@ import { LoadingScreen } from './components/UI.jsx';
 import AdminPage from './pages/AdminPage.jsx';
 import SuspendedPage from './pages/SuspendedPage.jsx';
 
-const studentAccessAllowed = ['/dashboard', '/welcome', '/competitions'];
-
 function ProtectedRoute({ children }) {
   const { account, loading } = useAuth();
-  const location = useLocation();
 
   if (loading) return <LoadingScreen />;
   if (!account) return <Navigate to="/login" replace />;
   if (account.profile?.account_status === 'suspended') return <SuspendedPage />;
-  if (account.role === 'student' && !account.profile?.has_verified_payment && !studentAccessAllowed.includes(location.pathname)) {
-    return <Navigate to="/dashboard" replace />;
-  }
   return children;
 }
 
