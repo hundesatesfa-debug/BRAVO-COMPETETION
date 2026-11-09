@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { parse } from '@web-ppt/core';
 import { Viewer as PowerPointViewer } from '@web-ppt/viewer-core';
 import {
-  ChevronLeft, ChevronRight, Download, Minus, Plus, RotateCcw,
+  ChevronLeft, ChevronRight, Download, Minus, Plus, RotateCcw, Search, X,
 } from 'lucide-react';
 import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
 
@@ -11,50 +11,171 @@ GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString();
 
-export default function StudyDocumentViewer({ document: studyDocument, onPageChange }) {
+function PdfPage({ pdf, pageNumber, scale, rootRef }) {
+  const pageRef = useRef(null);
   const canvasRef = useRef(null);
+  const renderedRef = useRef(false);
+  const [dimensions, setDimensions] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    let visible = false;
+    let rendering = false;
+    let failed = false;
+    let pageProxy = null;
+    let renderTask = null;
+
+    async function renderPage() {
+      if (!active || !visible || rendering || renderedRef.current) return;
+      rendering = true;
+      try {
+        pageProxy = await pdf.getPage(pageNumber);
+        if (!active || !visible) return;
+
+        const viewport = pageProxy.getViewport({ scale });
+        const canvas = canvasRef.current;
+        const context = canvas?.getContext('2d', { alpha: false });
+        if (!canvas || !context) {
+          failed = true;
+          setError(`Page ${pageNumber} could not be rendered in this browser.`);
+          return;
+        }
+
+        setDimensions({ width: viewport.width, height: viewport.height });
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.floor(viewport.width * pixelRatio);
+        canvas.height = Math.floor(viewport.height * pixelRatio);
+        canvas.style.width = `${Math.floor(viewport.width)}px`;
+        canvas.style.height = `${Math.floor(viewport.height)}px`;
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+
+        renderTask = pageProxy.render({ canvasContext: context, viewport });
+        await renderTask.promise;
+        if (active && visible) renderedRef.current = true;
+      } catch (renderError) {
+        if (active && renderError?.name !== 'RenderingCancelledException') {
+          failed = true;
+          setError(renderError?.message || `Page ${pageNumber} could not be rendered.`);
+        }
+      } finally {
+        rendering = false;
+        renderTask = null;
+        if (active && visible && !renderedRef.current && !failed) requestAnimationFrame(renderPage);
+      }
+    }
+
+    function handleIntersection(entries) {
+      for (const entry of entries) {
+        visible = entry.isIntersecting;
+        if (visible) {
+          renderPage();
+        } else {
+          renderTask?.cancel();
+          renderedRef.current = false;
+          const canvas = canvasRef.current;
+          if (canvas) {
+            canvas.width = 0;
+            canvas.height = 0;
+          }
+          pageProxy?.cleanup();
+          pageProxy = null;
+        }
+      }
+    }
+
+    if (typeof IntersectionObserver === 'undefined') {
+      visible = true;
+      renderPage();
+      return () => {
+        active = false;
+        renderTask?.cancel();
+        renderedRef.current = false;
+        pageProxy?.cleanup();
+      };
+    }
+
+    const observer = new IntersectionObserver(handleIntersection, {
+      root: rootRef.current,
+      rootMargin: '900px 0px',
+      threshold: [0, 0.1, 0.5, 1],
+    });
+    if (pageRef.current) observer.observe(pageRef.current);
+
+    return () => {
+      active = false;
+      observer.disconnect();
+      renderTask?.cancel();
+      renderedRef.current = false;
+      const canvas = canvasRef.current;
+      if (canvas) {
+        canvas.width = 0;
+        canvas.height = 0;
+      }
+      pageProxy?.cleanup();
+    };
+  }, [pageNumber, pdf, rootRef, scale]);
+
+  return (
+    <article
+      className="study-pdf-page"
+      data-page-number={pageNumber}
+      ref={pageRef}
+      style={{ aspectRatio: dimensions ? `${dimensions.width} / ${dimensions.height}` : '0.773' }}
+      aria-label={`Page ${pageNumber}`}
+    >
+      <canvas ref={canvasRef} aria-label={`PDF page ${pageNumber}`} />
+      {error && <span className="study-pdf-page-error">{error}</span>}
+    </article>
+  );
+}
+
+export default function StudyDocumentViewer({ document: studyDocument, onPageChange, onClose }) {
   const stageRef = useRef(null);
+  const pdfStageRef = useRef(null);
   const pdfRef = useRef(null);
   const pdfLoadingTaskRef = useRef(null);
-  const renderTaskRef = useRef(null);
   const powerPointRef = useRef(null);
   const powerPointHostRef = useRef(null);
+  const visiblePageFrameRef = useRef(0);
+  const initialNavigationPendingRef = useRef(false);
+  const initialPdfPageRef = useRef(studyDocument.progress_page || 1);
+  const searchCursorRef = useRef({ term: '', page: 0 });
   const [pageCount, setPageCount] = useState(studyDocument.page_count || null);
   const [page, setPage] = useState(studyDocument.progress_page || 1);
+  const [pageInput, setPageInput] = useState(String(studyDocument.progress_page || 1));
   const [zoom, setZoom] = useState(1);
+  const [fitScale, setFitScale] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [downloadUrl, setDownloadUrl] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchStatus, setSearchStatus] = useState('');
+  const [searching, setSearching] = useState(false);
 
-  const drawPdfPage = useCallback(async (pageNumber) => {
-    const pdf = pdfRef.current;
-    const canvas = canvasRef.current;
-    if (!pdf || !canvas) return;
-
-    renderTaskRef.current?.cancel();
-    try {
-      const pdfPage = await pdf.getPage(pageNumber);
-      if (pdfRef.current !== pdf) return;
-      const viewport = pdfPage.getViewport({ scale: zoom });
-      const context = canvas.getContext('2d', { alpha: false });
-      const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-
-      canvas.width = Math.floor(viewport.width * pixelRatio);
-      canvas.height = Math.floor(viewport.height * pixelRatio);
-      canvas.style.width = `${Math.floor(viewport.width)}px`;
-      canvas.style.height = `${Math.floor(viewport.height)}px`;
-      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-
-      const task = pdfPage.render({ canvasContext: context, viewport });
-      renderTaskRef.current = task;
-      await task.promise;
-      if (renderTaskRef.current === task) renderTaskRef.current = null;
-    } catch (drawError) {
-      if (drawError?.name !== 'RenderingCancelledException' && pdfRef.current === pdf) {
-        setError(drawError?.message || 'This PDF page could not be rendered.');
+  const updateCurrentPage = useCallback(() => {
+    if (initialNavigationPendingRef.current || visiblePageFrameRef.current) return;
+    visiblePageFrameRef.current = requestAnimationFrame(() => {
+      visiblePageFrameRef.current = 0;
+      if (initialNavigationPendingRef.current) return;
+      const stage = pdfStageRef.current;
+      if (!stage) return;
+      const stageBounds = stage.getBoundingClientRect();
+      const center = stageBounds.top + stage.clientHeight / 2;
+      let closestPage = 0;
+      let closestDistance = Infinity;
+      for (const pageElement of stage.querySelectorAll('[data-page-number]')) {
+        const bounds = pageElement.getBoundingClientRect();
+        if (bounds.bottom <= stageBounds.top || bounds.top >= stageBounds.bottom) continue;
+        const distance = Math.abs((bounds.top + bounds.bottom) / 2 - center);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestPage = Number(pageElement.dataset.pageNumber);
+        }
       }
-    }
-  }, [zoom]);
+      if (closestPage) setPage((current) => (current === closestPage ? current : closestPage));
+    });
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -62,7 +183,9 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
     setLoading(true);
     setError('');
     setPage(studyDocument.progress_page || 1);
+    setPageInput(String(studyDocument.progress_page || 1));
     setPageCount(studyDocument.page_count || null);
+    initialNavigationPendingRef.current = false;
 
     function disposePowerPointViewer() {
       const viewer = powerPointRef.current;
@@ -94,9 +217,16 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
           if (!active) return;
           pdfRef.current = pdf;
           setPageCount(pdf.numPages);
+          const firstPdfPage = await pdf.getPage(1);
+          const baseWidth = firstPdfPage.getViewport({ scale: 1 }).width;
+          firstPdfPage.cleanup();
+          if (!active) return;
+          const stageWidth = pdfStageRef.current?.clientWidth || window.innerWidth;
+          setFitScale(Math.max(0.45, Math.min(1.35, (stageWidth - 48) / baseWidth)));
           const firstPage = Math.min(Math.max(studyDocument.progress_page || 1, 1), pdf.numPages);
+          initialPdfPageRef.current = firstPage;
+          initialNavigationPendingRef.current = true;
           setPage(firstPage);
-          await drawPdfPage(firstPage);
         } else if (extension === 'ppt' || extension === 'pptx') {
           const presentation = await parse(studyDocument.blob);
           if (!active || !stageRef.current) return;
@@ -141,8 +271,9 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
 
     return () => {
       active = false;
-      renderTaskRef.current?.cancel();
-      renderTaskRef.current = null;
+      initialNavigationPendingRef.current = false;
+      if (visiblePageFrameRef.current) cancelAnimationFrame(visiblePageFrameRef.current);
+      visiblePageFrameRef.current = 0;
       const loadingTask = pdfLoadingTaskRef.current;
       pdfLoadingTaskRef.current = null;
       if (typeof loadingTask?.destroy === 'function') {
@@ -156,8 +287,24 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
   }, [studyDocument.id, studyDocument.blob, studyDocument.file_type, onPageChange]);
 
   useEffect(() => {
-    if (studyDocument.file_type === 'pdf' && pageCount) drawPdfPage(page);
-  }, [drawPdfPage, page, pageCount, studyDocument.file_type]);
+    setPageInput(String(page));
+    if (studyDocument.file_type === 'pdf' && pageCount) onPageChange(page, pageCount);
+  }, [onPageChange, page, pageCount, studyDocument.file_type]);
+
+  useEffect(() => {
+    if (studyDocument.file_type !== 'pdf' || !pageCount || loading) return undefined;
+    const frame = requestAnimationFrame(() => {
+      pdfStageRef.current?.querySelector(`[data-page-number="${initialPdfPageRef.current}"]`)?.scrollIntoView({
+        block: 'start',
+        behavior: 'auto',
+      });
+      requestAnimationFrame(() => {
+        initialNavigationPendingRef.current = false;
+        updateCurrentPage();
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [loading, pageCount, studyDocument.file_type, updateCurrentPage]);
 
   useEffect(() => {
     if (!studyDocument.blob) {
@@ -170,78 +317,183 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
   }, [studyDocument.blob]);
 
   useEffect(() => {
-    if (studyDocument.file_type === 'pdf' && pageCount) onPageChange(page, pageCount);
-  }, [onPageChange, page, pageCount, studyDocument.file_type]);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, []);
 
-  function changePage(nextPage) {
-    const boundedPage = Math.max(1, Math.min(pageCount || 1, nextPage));
-    if (boundedPage === page) return;
+  const goToPage = useCallback((nextPage) => {
+    const boundedPage = Math.max(1, Math.min(pageCount || 1, Number(nextPage) || 1));
+    setPage(boundedPage);
+    setPageInput(String(boundedPage));
 
     if (studyDocument.file_type === 'pdf') {
-      setPage(boundedPage);
+      requestAnimationFrame(() => {
+        pdfStageRef.current?.querySelector(`[data-page-number="${boundedPage}"]`)?.scrollIntoView({
+          block: 'start',
+          behavior: 'smooth',
+        });
+      });
     } else if (boundedPage > page) {
       powerPointRef.current?.next();
     } else {
       powerPointRef.current?.prev();
     }
-  }
+  }, [page, pageCount, studyDocument.file_type]);
+
+  const findTopic = useCallback(async () => {
+    const pdf = pdfRef.current;
+    const query = searchTerm.trim().toLocaleLowerCase();
+    if (!pdf || !query || !pageCount) return;
+
+    const sameQuery = searchCursorRef.current.term === query;
+    const startPage = sameQuery ? searchCursorRef.current.page + 1 : page;
+    setSearching(true);
+    setSearchStatus('Searching…');
+    let foundPage = 0;
+
+    try {
+      for (let offset = 0; offset < pageCount; offset += 1) {
+        const pageNumber = ((startPage - 1 + offset) % pageCount) + 1;
+        const pdfPage = await pdf.getPage(pageNumber);
+        const textContent = await pdfPage.getTextContent();
+        const text = textContent.items
+          .map((item) => ('str' in item ? item.str : ''))
+          .join(' ')
+          .toLocaleLowerCase();
+        if (pdfRef.current !== pdf) return;
+        if (text.includes(query)) {
+          foundPage = pageNumber;
+          break;
+        }
+      }
+
+      if (foundPage) {
+        searchCursorRef.current = { term: query, page: foundPage };
+        setSearchStatus(`Found on page ${foundPage}`);
+        goToPage(foundPage);
+      } else {
+        searchCursorRef.current = { term: query, page: 0 };
+        setSearchStatus(`No match for “${searchTerm.trim()}”.`);
+      }
+    } catch (searchError) {
+      setSearchStatus(searchError?.message || 'Topic search could not be completed.');
+    } finally {
+      setSearching(false);
+    }
+  }, [goToPage, page, pageCount, searchTerm]);
+
+  const closeReader = useCallback(async () => {
+    if (pageCount) await onPageChange(page, pageCount);
+    onClose();
+  }, [onClose, onPageChange, page, pageCount]);
+
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        closeReader();
+        return;
+      }
+      if (event.target instanceof HTMLInputElement) return;
+      if (event.key === 'ArrowLeft') goToPage(page - 1);
+      if (event.key === 'ArrowRight') goToPage(page + 1);
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [closeReader, goToPage, page]);
 
   return (
-    <section className="study-reader" aria-label={`Reading ${studyDocument.file_name}`}>
-      <div className="study-reader-toolbar">
-        <div>
-          <strong>{studyDocument.file_name}</strong>
-          <span>{studyDocument.file_type.toUpperCase()} · Stored on this device</span>
-        </div>
+    <section className="study-reader study-reader-fullscreen" role="dialog" aria-modal="true" aria-label={`Reading ${studyDocument.file_name}`}>
+      <header className="study-reader-toolbar">
+        <button className="study-icon-button" type="button" aria-label="Close reader" onClick={closeReader}>
+          <X size={19} />
+        </button>
+        <strong className="study-reader-title" title={studyDocument.file_name}>{studyDocument.file_name}</strong>
+
         <div className="study-reader-controls">
           <button
             className="study-icon-button"
             type="button"
             aria-label="Previous page or slide"
             disabled={loading || page <= 1}
-            onClick={() => changePage(page - 1)}
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <span className="study-page-count">{pageCount ? `${page} / ${pageCount}` : '— / —'}</span>
+            onClick={() => goToPage(page - 1)}
+          ><ChevronLeft size={18} /></button>
+          <label className="study-page-jump">
+            <span className="sr-only">Go to page</span>
+            <input
+              aria-label="Go to page"
+              type="number"
+              min="1"
+              max={pageCount || undefined}
+              value={pageInput}
+              disabled={loading || !pageCount}
+              onChange={(event) => setPageInput(event.target.value)}
+              onBlur={() => goToPage(pageInput)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  goToPage(pageInput);
+                  event.currentTarget.blur();
+                }
+              }}
+            />
+            <span>/ {pageCount || '—'}</span>
+          </label>
           <button
             className="study-icon-button"
             type="button"
             aria-label="Next page or slide"
             disabled={loading || !pageCount || page >= pageCount}
-            onClick={() => changePage(page + 1)}
-          >
-            <ChevronRight size={18} />
-          </button>
-          {studyDocument.file_type === 'pdf' && (
-            <>
-              <button
-                className="study-icon-button study-zoom-control"
-                type="button"
-                aria-label="Zoom out"
-                onClick={() => setZoom((value) => Math.max(0.65, value - 0.15))}
-              ><Minus size={16} /></button>
-              <span className="study-page-count">{Math.round(zoom * 100)}%</span>
-              <button
-                className="study-icon-button study-zoom-control"
-                type="button"
-                aria-label="Zoom in"
-                onClick={() => setZoom((value) => Math.min(2.25, value + 0.15))}
-              ><Plus size={16} /></button>
-            </>
-          )}
-          <a
-            className="study-icon-button"
-            href={downloadUrl || undefined}
-            download={studyDocument.file_name}
-            aria-label="Download a copy"
-          ><Download size={16} /></a>
+            onClick={() => goToPage(page + 1)}
+          ><ChevronRight size={18} /></button>
         </div>
-      </div>
 
-      {loading && <div className="study-viewer-message"><span className="loading-inline" />Opening your material…</div>}
+        {studyDocument.file_type === 'pdf' && (
+          <>
+            <form
+              className="study-topic-search"
+              onSubmit={(event) => {
+                event.preventDefault();
+                findTopic();
+              }}
+            >
+              <input
+                type="search"
+                aria-label="Search a topic in this PDF"
+                placeholder="Search in PDF"
+                value={searchTerm}
+                disabled={loading}
+                onChange={(event) => {
+                  setSearchTerm(event.target.value);
+                  searchCursorRef.current = { term: '', page: 0 };
+                  setSearchStatus('');
+                }}
+              />
+              <button className="study-icon-button" type="submit" disabled={loading || searching || !searchTerm.trim()} aria-label="Find next match">
+                <Search size={16} />
+              </button>
+            </form>
+            <span className="study-search-status" aria-live="polite">
+              {searching ? 'Searching…' : searchStatus}
+            </span>
+            <div className="study-reader-zoom">
+              <button className="study-icon-button" type="button" aria-label="Zoom out" disabled={zoom <= 0.6} onClick={() => setZoom((value) => Math.max(0.6, value - 0.1))}><Minus size={16} /></button>
+              <span>{Math.round(zoom * 100)}%</span>
+              <button className="study-icon-button" type="button" aria-label="Zoom in" disabled={zoom >= 2.2} onClick={() => setZoom((value) => Math.min(2.2, value + 0.1))}><Plus size={16} /></button>
+            </div>
+          </>
+        )}
+
+        {downloadUrl && (
+          <a className="study-icon-button" href={downloadUrl} download={studyDocument.file_name} aria-label="Download a copy">
+            <Download size={16} />
+          </a>
+        )}
+      </header>
+
+      {loading && <div className="study-reader-state"><span className="loading-inline" />Opening your material…</div>}
       {error && (
-        <div className="study-viewer-message study-viewer-error">
+        <div className="study-reader-state study-viewer-error" role="alert">
           <RotateCcw size={17} />
           <span>{error}</span>
           {downloadUrl && (
@@ -252,11 +504,21 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
         </div>
       )}
 
-      <div className="study-document-stage" ref={stageRef} hidden={loading || Boolean(error) || studyDocument.file_type === 'pdf'} />
-      {studyDocument.file_type === 'pdf' && (
-        <div className="study-pdf-stage" ref={stageRef} hidden={loading || Boolean(error)}>
-          <canvas ref={canvasRef} aria-label={`PDF page ${page}`} />
+      {studyDocument.file_type === 'pdf' && pdfRef.current && (
+        <div className="study-pdf-stage study-pdf-continuous" ref={pdfStageRef} hidden={loading || Boolean(error)} onScroll={updateCurrentPage}>
+          {Array.from({ length: pageCount || 0 }, (_, index) => (
+            <PdfPage
+              key={`${studyDocument.id}-${index + 1}`}
+              pdf={pdfRef.current}
+              pageNumber={index + 1}
+              scale={fitScale * zoom}
+              rootRef={pdfStageRef}
+            />
+          ))}
         </div>
+      )}
+      {studyDocument.file_type !== 'pdf' && (
+        <div className="study-document-stage study-reader-ppt" ref={stageRef} hidden={loading || Boolean(error)} />
       )}
     </section>
   );

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BookOpen, Check, Clock3, Download, FileText, FolderOpen, HardDrive,
-  Pause, Pencil, Presentation, RefreshCw, Search, Trash2, Upload,
+  Pencil, Presentation, RefreshCw, RotateCcw, Search, Trash2, Upload,
   Wifi, WifiOff, X,
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
@@ -78,6 +78,7 @@ export default function StudyRoomPage() {
   const [courseMaterialsError, setCourseMaterialsError] = useState('');
   const [downloadingMaterial, setDownloadingMaterial] = useState('');
   const [selectedDocumentId, setSelectedDocumentId] = useState('');
+  const [resumeDocument, setResumeDocument] = useState(null);
   const [search, setSearch] = useState('');
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -90,7 +91,7 @@ export default function StudyRoomPage() {
   const recoveredUserRef = useRef('');
 
   const selectedDocument = documents.find((document) => document.id === selectedDocumentId) || null;
-  const { activeSeconds, isCounting, saved, markPageViewed } = useStudySession({
+  const { markPageViewed } = useStudySession({
     documentId: selectedDocument?.id,
     userId,
     initialPage: selectedDocument?.progress_page || 1,
@@ -230,19 +231,34 @@ export default function StudyRoomPage() {
     } finally { setDownloadingMaterial(''); }
   }
 
-  async function openDocument(document) {
-    setSelectedDocumentId(document.id);
+  async function openDocument(document, progressPage = document.progress_page || 1) {
     setError('');
-    const opened = await updateStudyDocument(document.id, {
-      last_opened_at: new Date().toISOString(),
-    }, userId).catch(() => document);
-    setDocuments((current) => current.map((item) => item.id === document.id ? opened : item));
+    try {
+      const opened = await updateStudyDocument(document.id, {
+        last_opened_at: new Date().toISOString(),
+        progress_page: progressPage,
+      }, userId);
+      if (!opened) throw new Error('This material is no longer available in your local library.');
+      setDocuments((current) => current.map((item) => item.id === document.id ? opened : item));
+      setSelectedDocumentId(document.id);
+      setResumeDocument(null);
 
-    if (isOnline) {
-      syncStudyDocument(opened, userId)
-        .then(() => setSyncMessage('Material metadata synced. The file and reading position stay on this device.'))
-        .catch(() => setSyncMessage('This material is ready offline. Its metadata will sync with your next study session.'));
+      if (isOnline) {
+        syncStudyDocument(opened, userId)
+          .then(() => setSyncMessage('Material metadata synced. The file and reading position stay on this device.'))
+          .catch(() => setSyncMessage('This material is ready offline. Its metadata will sync with your next study session.'));
+      }
+    } catch (openError) {
+      setError(openError.message || 'This material could not be opened.');
     }
+  }
+
+  function requestOpenDocument(document) {
+    if ((document.progress_page || 1) > 1) {
+      setResumeDocument(document);
+      return;
+    }
+    openDocument(document, 1);
   }
 
   const onPageChange = useCallback(async (page, pageCount) => {
@@ -333,19 +349,12 @@ export default function StudyRoomPage() {
       {syncMessage && <div className="study-message" role="status">{syncMessage}</div>}
 
       {selectedDocument && (
-        <div className="study-active-panel">
-          <StudyDocumentViewer document={selectedDocument} onPageChange={onPageChange} />
-          <div className="study-session-status">
-            <span className={`session-state-dot ${isCounting ? 'is-active' : ''}`} />
-            <span>{isCounting ? 'Study time is counting' : 'Study time paused'}</span>
-            <strong><Clock3 size={14} /> {formatDuration(activeSeconds)}</strong>
-            {!isCounting && <span className="session-pause-hint"><Pause size={13} /> Pauses after 3 minutes idle or when this tab is hidden</span>}
-            {saved && <span className="session-saved"><Check size={14} /> Saved locally</span>}
-            <button className="button button-quiet button-small" type="button" onClick={syncNow} disabled={!isOnline || !summary.pending_session_count}>
-              <RefreshCw size={14} /> Sync sessions
-            </button>
-          </div>
-        </div>
+        <StudyDocumentViewer
+          key={selectedDocument.id}
+          document={selectedDocument}
+          onPageChange={onPageChange}
+          onClose={() => setSelectedDocumentId('')}
+        />
       )}
 
       <div
@@ -432,7 +441,7 @@ export default function StudyRoomPage() {
                 </small>
               </div>
               <div className="study-material-actions">
-                <button className="button button-outline button-small" type="button" onClick={() => openDocument(document)}>
+                <button className="button button-outline button-small" type="button" onClick={() => requestOpenDocument(document)}>
                   <BookOpen size={14} /> {selectedDocumentId === document.id ? 'Continue' : 'Open'}
                 </button>
                 <button className="study-icon-button" type="button" onClick={() => { setEditTitle(document.title); setEditingId(document.id); }} aria-label={`Rename ${document.title}`}><Pencil size={15} /></button>
@@ -455,6 +464,32 @@ export default function StudyRoomPage() {
           <RefreshCw size={14} /> Sync now
         </button>
       </div>
+
+      {resumeDocument && (
+        <div className="study-resume-backdrop">
+          <section className="study-resume-dialog" role="dialog" aria-modal="true" aria-labelledby="study-resume-title">
+            <button className="study-icon-button study-resume-close" type="button" onClick={() => setResumeDocument(null)} aria-label="Close resume prompt">
+              <X size={17} />
+            </button>
+            <span className="study-resume-icon"><BookOpen size={20} /></span>
+            <h3 id="study-resume-title">Continue where you left off?</h3>
+            <p>
+              <strong>{resumeDocument.title}</strong>
+              <br />
+              Your last saved position was page {resumeDocument.progress_page}
+              {resumeDocument.page_count ? ` of ${resumeDocument.page_count}` : ''}.
+            </p>
+            <div className="study-resume-actions">
+              <button className="button button-outline" type="button" onClick={() => openDocument(resumeDocument, 1)}>
+                <RotateCcw size={15} /> Start from beginning
+              </button>
+              <button className="button button-primary" type="button" onClick={() => openDocument(resumeDocument)}>
+                <BookOpen size={15} /> Resume reading
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </section>
   );
 }
