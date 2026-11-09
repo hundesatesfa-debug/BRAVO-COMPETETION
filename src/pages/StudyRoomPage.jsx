@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  BookOpen, Check, Clock3, FileText, FolderOpen, HardDrive,
+  BookOpen, Check, Clock3, Download, FileText, FolderOpen, HardDrive,
   Pause, Pencil, Presentation, RefreshCw, Search, Trash2, Upload,
   Wifi, WifiOff, X,
 } from 'lucide-react';
@@ -20,6 +20,12 @@ import {
 } from '../lib/studyStore.js';
 import { syncPendingStudySessions, syncStudyDocument, syncStudyDocuments } from '../lib/studySync.js';
 
+const materialExtensions = {
+  'application/pdf': 'pdf',
+  'application/vnd.ms-powerpoint': 'ppt',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+};
+
 function formatBytes(bytes) {
   if (!bytes) return '0 bytes';
   const units = ['bytes', 'KB', 'MB', 'GB'];
@@ -37,6 +43,27 @@ function formatDuration(seconds) {
 function MaterialIcon({ type }) {
   if (type === 'ppt' || type === 'pptx') return <Presentation size={18} />;
   return <FileText size={18} />;
+}
+
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function getCourseMaterialDownloadError(error) {
+  const status = Number(error?.statusCode);
+  if (status === 401 || status === 403) {
+    return 'You do not have permission to access this course file. Sign in again or contact your course administrator.';
+  }
+  if (status === 404) return 'This course file is no longer available. Ask your course administrator to upload it again.';
+  if (!navigator.onLine) return 'The connection was lost before the course file finished downloading. Reconnect and try again.';
+  return error?.message || 'This course material could not be downloaded.';
 }
 
 export default function StudyRoomPage() {
@@ -179,17 +206,27 @@ export default function StudyRoomPage() {
     setDownloadingMaterial(material.id); setCourseMaterialsError('');
     try {
       const { data, error: downloadError } = await supabase.storage.from('academic-materials').download(material.object_path);
-      if (downloadError) throw downloadError;
-      const extension = material.mime_type === 'application/pdf' ? 'pdf'
-        : material.mime_type === 'application/vnd.ms-powerpoint' ? 'ppt' : 'pptx';
-      const fileName = `${material.title.replace(/[\\/:*?"<>|]/g, '_')}.${extension}`;
+      if (downloadError) {
+        setCourseMaterialsError(getCourseMaterialDownloadError(downloadError));
+        return;
+      }
+      if (!data) throw new Error('The stored course file was empty or is no longer available.');
+      const extension = materialExtensions[material.mime_type];
+      const safeTitle = material.title.replace(/[\\/:*?"<>|]/g, '_');
+      if (!extension) {
+        const storedName = material.object_path.split('/').pop()?.replace(/[\\/:*?"<>|]/g, '_');
+        downloadBlob(data, storedName || safeTitle);
+        setSyncMessage(`${material.title} was downloaded. This format is not previewed in BRAVO; open it with a compatible app.`);
+        return;
+      }
+      const fileName = `${safeTitle}.${extension}`;
       const stored = await saveStudyDocument(new File([data], fileName, { type: material.mime_type }), userId);
       await refreshDocuments();
       await refreshSummary();
       setSelectedDocumentId(stored.id);
       setSyncMessage(`${material.title} is saved on this device and ready offline.`);
     } catch (downloadError) {
-      setCourseMaterialsError(downloadError.message || 'This course material could not be downloaded.');
+      setCourseMaterialsError(getCourseMaterialDownloadError(downloadError));
     } finally { setDownloadingMaterial(''); }
   }
 
@@ -348,11 +385,12 @@ export default function StudyRoomPage() {
           </div>
           {courseMaterialsError && <div className="study-message study-message-error" role="status">{courseMaterialsError}</div>}
           {isOnline && (courseMaterials.length ? <div className="study-material-grid official-material-grid">{courseMaterials.map((material) => {
-            const Icon = material.mime_type === 'application/pdf' ? FileText : Presentation;
+            const extension = materialExtensions[material.mime_type];
+            const Icon = extension === 'pdf' ? FileText : extension ? Presentation : Download;
             return <article className="study-material-card official-material-card" key={material.id}>
-              <div className={`study-material-icon ${material.mime_type === 'application/pdf' ? 'file-pdf' : 'file-pptx'}`}><Icon size={18} /></div>
+              <div className={`study-material-icon ${extension === 'pdf' ? 'file-pdf' : extension ? 'file-pptx' : ''}`}><Icon size={18} /></div>
               <div className="study-material-copy"><h4 title={material.title}>{material.title}</h4><span>{material.courses?.code || material.courses?.title || 'Course'} · {formatBytes(material.size_bytes)}</span><small>{material.description || 'Official BRAVO course material'}</small></div>
-              <div className="study-material-actions"><button className="button button-outline button-small" type="button" onClick={() => downloadCourseMaterial(material)} disabled={downloadingMaterial === material.id}><BookOpen size={14} /> {downloadingMaterial === material.id ? 'Saving…' : 'Save offline'}</button></div>
+              <div className="study-material-actions"><button className="button button-outline button-small" type="button" onClick={() => downloadCourseMaterial(material)} disabled={downloadingMaterial === material.id}>{downloadingMaterial === material.id ? 'Downloading…' : extension ? <><BookOpen size={14} /> Save offline</> : <><Download size={14} /> Download</>}</button></div>
             </article>;
           })}</div> : <div className="study-empty-state official-library-empty"><span className="study-empty-icon"><BookOpen size={20} /></span><p>Official course files from your academic level and stream will appear here.</p></div>)}
         </div>

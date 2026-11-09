@@ -15,8 +15,10 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
   const canvasRef = useRef(null);
   const stageRef = useRef(null);
   const pdfRef = useRef(null);
+  const pdfLoadingTaskRef = useRef(null);
   const renderTaskRef = useRef(null);
   const powerPointRef = useRef(null);
+  const powerPointHostRef = useRef(null);
   const [pageCount, setPageCount] = useState(studyDocument.page_count || null);
   const [page, setPage] = useState(studyDocument.progress_page || 1);
   const [zoom, setZoom] = useState(1);
@@ -32,6 +34,7 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
     renderTaskRef.current?.cancel();
     try {
       const pdfPage = await pdf.getPage(pageNumber);
+      if (pdfRef.current !== pdf) return;
       const viewport = pdfPage.getViewport({ scale: zoom });
       const context = canvas.getContext('2d', { alpha: false });
       const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
@@ -45,8 +48,9 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
       const task = pdfPage.render({ canvasContext: context, viewport });
       renderTaskRef.current = task;
       await task.promise;
+      if (renderTaskRef.current === task) renderTaskRef.current = null;
     } catch (drawError) {
-      if (drawError?.name !== 'RenderingCancelledException') {
+      if (drawError?.name !== 'RenderingCancelledException' && pdfRef.current === pdf) {
         setError(drawError?.message || 'This PDF page could not be rendered.');
       }
     }
@@ -59,9 +63,19 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
     setError('');
     setPage(studyDocument.progress_page || 1);
     setPageCount(studyDocument.page_count || null);
-    pdfRef.current = null;
-    powerPointRef.current?.destroy();
-    powerPointRef.current = null;
+
+    function disposePowerPointViewer() {
+      const viewer = powerPointRef.current;
+      powerPointRef.current = null;
+      if (viewer) {
+        viewer.onChange = null;
+        if (typeof viewer.destroy === 'function') viewer.destroy();
+      }
+
+      const host = powerPointHostRef.current;
+      powerPointHostRef.current = null;
+      host?.remove();
+    }
 
     async function loadDocument() {
       try {
@@ -70,24 +84,28 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
         }
 
         if (extension === 'pdf') {
+          const bytes = await studyDocument.blob.arrayBuffer();
+          if (!active) return;
           const loadingTask = getDocument({
-            data: new Uint8Array(await studyDocument.blob.arrayBuffer()),
+            data: new Uint8Array(bytes),
           });
+          pdfLoadingTaskRef.current = loadingTask;
           const pdf = await loadingTask.promise;
-          if (!active) {
-            await pdf.destroy();
-            return;
-          }
+          if (!active) return;
           pdfRef.current = pdf;
           setPageCount(pdf.numPages);
           const firstPage = Math.min(Math.max(studyDocument.progress_page || 1, 1), pdf.numPages);
           setPage(firstPage);
           await drawPdfPage(firstPage);
-        } else {
+        } else if (extension === 'ppt' || extension === 'pptx') {
           const presentation = await parse(studyDocument.blob);
           if (!active || !stageRef.current) return;
 
-          const viewer = new PowerPointViewer(stageRef.current, presentation, {
+          const viewerHost = stageRef.current.ownerDocument.createElement('div');
+          viewerHost.style.display = 'contents';
+          stageRef.current.replaceChildren(viewerHost);
+          powerPointHostRef.current = viewerHost;
+          const viewer = new PowerPointViewer(viewerHost, presentation, {
             animate: false,
             autoAdvance: false,
             textMode: 'svg',
@@ -103,9 +121,17 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
           const actualPage = viewer.index + 1;
           setPage(actualPage);
           onPageChange(actualPage, viewer.count);
+        } else {
+          throw new Error('This file type cannot be previewed here. Download a copy to open it in a compatible app.');
         }
       } catch (loadError) {
-        if (active) setError(loadError?.message || 'This document could not be opened.');
+        if (active) {
+          if (extension === 'ppt' || extension === 'pptx') disposePowerPointViewer();
+          const message = loadError?.message || 'This document could not be opened.';
+          setError(extension === 'ppt' || extension === 'pptx'
+            ? `This presentation could not be previewed. Download a copy to open it in a compatible app. ${message}`
+            : message);
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -117,10 +143,15 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
       active = false;
       renderTaskRef.current?.cancel();
       renderTaskRef.current = null;
-      pdfRef.current?.destroy();
+      const loadingTask = pdfLoadingTaskRef.current;
+      pdfLoadingTaskRef.current = null;
+      if (typeof loadingTask?.destroy === 'function') {
+        loadingTask.destroy().catch((cleanupError) => {
+          console.error('Could not clean up the PDF loading task.', cleanupError);
+        });
+      }
       pdfRef.current = null;
-      powerPointRef.current?.destroy();
-      powerPointRef.current = null;
+      disposePowerPointViewer();
     };
   }, [studyDocument.id, studyDocument.blob, studyDocument.file_type, onPageChange]);
 
@@ -209,9 +240,19 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
       </div>
 
       {loading && <div className="study-viewer-message"><span className="loading-inline" />Opening your material…</div>}
-      {error && <div className="study-viewer-message study-viewer-error"><RotateCcw size={17} />{error}</div>}
+      {error && (
+        <div className="study-viewer-message study-viewer-error">
+          <RotateCcw size={17} />
+          <span>{error}</span>
+          {downloadUrl && (
+            <a className="button button-outline button-small" href={downloadUrl} download={studyDocument.file_name}>
+              <Download size={14} /> Download file
+            </a>
+          )}
+        </div>
+      )}
 
-      <div className="study-document-stage" ref={stageRef} hidden={Boolean(error) || studyDocument.file_type === 'pdf'} />
+      <div className="study-document-stage" ref={stageRef} hidden={loading || Boolean(error) || studyDocument.file_type === 'pdf'} />
       {studyDocument.file_type === 'pdf' && (
         <div className="study-pdf-stage" ref={stageRef} hidden={loading || Boolean(error)}>
           <canvas ref={canvasRef} aria-label={`PDF page ${page}`} />
