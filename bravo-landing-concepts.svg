@@ -1,0 +1,384 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1200" viewBox="0 0 1800 1200" role="img" aria-labelledby="title description">
+  <title id="title">Bravo Academy landing page design concepts</title>
+  <desc id="description">Four distinct Bravo educational website concepts displayed on presentation boards in a bright collaborative design studio.</desc>
+  <defs>
+    <linearGradient id="room" x2="0" y2="1">
+      <stop stop-color="#eaf0ef"/>
+      <stop offset=".48" stop-color="#dce6e3"/>
+      <stop offset=".49" stop-color="#c9c4b7"/>
+      <stop offset="1" stop-color="#a99f8d"/>
+    </linearGradient>
+    <linearGradient id="desk" x2=".15" y2="1">
+      <stop stop-color="#d8d1c5"/>
+      <stop offset="1" stop-color="#a99c87"/>
+    </linearGradient>
+    <linearGradient id="window" x2="1" y2="1">
+      <stop stop-color="#f8ffff"/>
+      <stop offset=".55" stop-color="#c5e0dc"/>
+      <stop offset="1" stop-color="#b3c9c1"/>
+    </linearGradient>
+    <linearGradient id="blueHero" x2="1" y2="1">
+      <stop stop-color="#c8edff"/>
+      <stop offset="1" stop-color="#67b6ee"/>
+    </linearGradient>
+    <linearGradient id="emeraldHero" x2="1" y2="1">
+      <stop stop-color="#1b3934"/>
+      <stop offset="1" stop-color="#32675a"/>
+    </linearGradient>
+    <linearGradient id="purpleHero" x2="1" y2="1">
+      <stop stop-color="#eee8ff"/>
+      <stop offset="1" stop-color="#c6b5f6"/>
+    </linearGradient>
+    <linearGradient id="goldHero" x2="1" y2="1">
+      <stop stop-color="#131a26"/>
+      <stop offset="1" stop-color="#26344a"/>
+    </linearGradient>
+    <linearGradient id="skinA" x2="1" y2="1">
+      <stop stop-color="#d69c75"/>
+      <stop offset="1" stop-color="#a9674d"/>
+    </linearGradient>
+    <linearGradient id="skinB" x2="1" y2="1">
+      <stop stop-color="#87543e"/>
+      <stop offset="1" stop-color="#573729"/>
+    </linearGradient>
+    <linearGradient id="skinC" x2="1" y2="1">
+      <stop stop-color="#f0c7a2"/>
+      <stop offset="1" stop-color="#c48b68"/>
+    </linearGradient>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="13"/>
+      <feOffset dy="16"/>
+      <feComponentTransfer><feFuncA type="linear" slope=".28"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softBlur"><feGaussianBlur stdDeviation="15"/></filter>
+    <filter id="paperShadow" x="-20%" y="-20%" width="150%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="4"/>
+      <feOffset dy="5"/>
+      <feComponentTransfer><feFuncA type="linear" slope=".16"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <pattern id="grain" width="90" height="90" patternUnits="userSpaceOnUse">
+      <circle cx="7" cy="12" r="1" fill="#776f61" opacity=".12"/>
+      <circle cx="63" cy="51" r="1" fill="#fff" opacity=".22"/>
+      <path d="M20 70l12-2M70 18l9 2" stroke="#766f61" stroke-width="1" opacity=".08"/>
+    </pattern>
+    <symbol id="brandBlue" viewBox="0 0 32 32">
+      <path d="M6 4h13a8 8 0 0 1 5 14 7 7 0 0 1-5 12H6z" fill="#147ee6"/>
+      <path d="M12 9h6a3 3 0 0 1 0 6h-6zm0 11h7a3 3 0 0 1 0 6h-7z" fill="#fff"/>
+    </symbol>
+    <symbol id="brandGreen" viewBox="0 0 32 32">
+      <path d="M6 4h13a8 8 0 0 1 5 14 7 7 0 0 1-5 12H6z" fill="#31bb89"/>
+      <path d="M12 9h6a3 3 0 0 1 0 6h-6zm0 11h7a3 3 0 0 1 0 6h-7z" fill="#17342f"/>
+    </symbol>
+    <symbol id="brandPurple" viewBox="0 0 32 32">
+      <path d="M6 4h13a8 8 0 0 1 5 14 7 7 0 0 1-5 12H6z" fill="#9371e5"/>
+      <path d="M12 9h6a3 3 0 0 1 0 6h-6zm0 11h7a3 3 0 0 1 0 6h-7z" fill="#fff"/>
+    </symbol>
+    <symbol id="brandGold" viewBox="0 0 32 32">
+      <path d="M6 4h13a8 8 0 0 1 5 14 7 7 0 0 1-5 12H6z" fill="#d9b469"/>
+      <path d="M12 9h6a3 3 0 0 1 0 6h-6zm0 11h7a3 3 0 0 1 0 6h-7z" fill="#172031"/>
+    </symbol>
+    <clipPath id="windowClip"><rect x="1090" y="52" width="635" height="240" rx="14"/></clipPath>
+  </defs>
+
+  <!-- Light-filled university design studio -->
+  <rect width="1800" height="1200" fill="url(#room)"/>
+  <g opacity=".82" filter="url(#softBlur)">
+    <rect x="1090" y="52" width="635" height="240" rx="14" fill="url(#window)"/>
+    <circle cx="1482" cy="155" r="61" fill="#f7e8bb" opacity=".75"/>
+    <path d="M1100 240c90-100 168-40 260-112 73-58 126 36 201-31 45-40 93 23 161-19v218h-622z" fill="#90b5a4" opacity=".58"/>
+    <path d="M1090 260h635M1295 52v240M1505 52v240" stroke="#fff" stroke-width="13" opacity=".9"/>
+  </g>
+  <rect x="1088" y="50" width="639" height="244" rx="14" fill="none" stroke="#fff" stroke-width="7" opacity=".9"/>
+  <path d="M0 308h1800v892H0z" fill="url(#desk)"/>
+  <path d="M0 308h1800v892H0z" fill="url(#grain)" opacity=".8"/>
+  <path d="M0 319c300 18 510 4 800-8s688 9 1000-7" fill="none" stroke="#fff" stroke-width="3" opacity=".3"/>
+
+  <!-- Studio title plaque -->
+  <g transform="rotate(-2 900 83)" filter="url(#paperShadow)">
+    <rect x="707" y="39" width="386" height="84" rx="12" fill="#26353b"/>
+    <rect x="715" y="47" width="370" height="68" rx="8" fill="#f7f5ec"/>
+    <text x="900" y="76" text-anchor="middle" fill="#52636a" font-family="Arial,sans-serif" font-size="12" font-weight="700" letter-spacing="3">UNIVERSITY DESIGN LAB</text>
+    <text x="900" y="101" text-anchor="middle" fill="#153c43" font-family="Arial,sans-serif" font-size="20" font-weight="800" letter-spacing="2">BRAVO · DESIGN WORKSHOP</text>
+  </g>
+
+  <!-- Warm light spill -->
+  <ellipse cx="540" cy="410" rx="580" ry="180" fill="#fff8d8" opacity=".22"/>
+
+  <!-- Four design boards -->
+  <g transform="translate(58 173) rotate(-2 190 326)" filter="url(#softShadow)">
+    <rect width="372" height="663" rx="16" fill="#f9fafb"/>
+    <rect x="8" y="8" width="356" height="647" rx="11" fill="#fff"/>
+    <rect x="8" y="8" width="356" height="39" rx="11" fill="#f8fbff"/>
+    <use href="#brandBlue" x="22" y="15" width="22" height="22"/>
+    <text x="50" y="31" fill="#163b61" font-family="Arial,sans-serif" font-size="11" font-weight="800">BRAVO</text>
+    <text x="121" y="30" fill="#52687c" font-family="Arial,sans-serif" font-size="7">Home</text>
+    <text x="155" y="30" fill="#52687c" font-family="Arial,sans-serif" font-size="7">Courses</text>
+    <text x="198" y="30" fill="#52687c" font-family="Arial,sans-serif" font-size="7">About</text>
+    <rect x="282" y="17" width="62" height="19" rx="9" fill="#147ee6"/>
+    <text x="313" y="30" text-anchor="middle" fill="#fff" font-family="Arial,sans-serif" font-size="7" font-weight="700">Sign up</text>
+    <rect x="8" y="47" width="356" height="172" fill="url(#blueHero)"/>
+    <circle cx="304" cy="128" r="67" fill="#fff" opacity=".32"/>
+    <circle cx="304" cy="128" r="47" fill="#e1f4ff" opacity=".65"/>
+    <path d="M261 181c8-35 20-48 41-48s38 17 42 48" fill="#f1b18a"/>
+    <circle cx="303" cy="116" r="23" fill="url(#skinC)"/>
+    <path d="M281 113q4-32 31-20l15 18-11-3-7-10q-8 12-28 15" fill="#46332d"/>
+    <path d="M262 184q38-27 79 0v34h-79z" fill="#ffb747"/>
+    <circle cx="346" cy="86" r="8" fill="#ffd967"/>
+    <path d="M21 88h181" stroke="#fff" stroke-width="1" opacity=".6"/>
+    <text x="25" y="105" fill="#173a5d" font-family="Arial,sans-serif" font-size="9" font-weight="700" letter-spacing="1.5">BRAVO ACADEMY</text>
+    <text x="25" y="133" fill="#143a60" font-family="Arial,sans-serif" font-size="21" font-weight="900">UNLOCK YOUR</text>
+    <text x="25" y="157" fill="#143a60" font-family="Arial,sans-serif" font-size="21" font-weight="900">POTENTIAL.</text>
+    <text x="25" y="175" fill="#325b7b" font-family="Arial,sans-serif" font-size="7">Learn skills that open doors. Start with a course</text>
+    <text x="25" y="185" fill="#325b7b" font-family="Arial,sans-serif" font-size="7">built around the future you want.</text>
+    <rect x="25" y="194" width="116" height="20" rx="10" fill="#147ee6"/>
+    <text x="83" y="207" text-anchor="middle" fill="#fff" font-family="Arial,sans-serif" font-size="7" font-weight="700">Explore courses  →</text>
+    <text x="22" y="241" fill="#193854" font-family="Arial,sans-serif" font-size="10" font-weight="800">Find your next big idea</text>
+    <rect x="22" y="250" width="242" height="26" rx="7" fill="#f7fafc" stroke="#dce7ef"/>
+    <circle cx="35" cy="263" r="4" fill="none" stroke="#5890b7" stroke-width="1.5"/>
+    <path d="M38 266l4 4" stroke="#5890b7" stroke-width="1.5"/>
+    <text x="49" y="266" fill="#8496a3" font-family="Arial,sans-serif" font-size="7">Search 2,400+ courses</text>
+    <rect x="270" y="250" width="78" height="26" rx="7" fill="#ffbd4a"/>
+    <text x="309" y="266" text-anchor="middle" fill="#173a5d" font-family="Arial,sans-serif" font-size="7" font-weight="700">Search</text>
+    <text x="22" y="302" fill="#183854" font-family="Arial,sans-serif" font-size="10" font-weight="800">Explore popular paths</text>
+    <g font-family="Arial,sans-serif">
+      <rect x="22" y="311" width="100" height="82" rx="9" fill="#f0f8ff"/>
+      <circle cx="45" cy="335" r="12" fill="#c6e8ff"/><text x="45" y="339" text-anchor="middle" fill="#1684cb" font-size="10" font-weight="800">∑</text>
+      <text x="34" y="365" fill="#24435c" font-size="7" font-weight="700">STEM</text><text x="34" y="377" fill="#7b91a0" font-size="6">180 courses</text>
+      <rect x="132" y="311" width="100" height="82" rx="9" fill="#fff7e8"/>
+      <circle cx="155" cy="335" r="12" fill="#ffe2a9"/><text x="155" y="339" text-anchor="middle" fill="#c38720" font-size="10" font-weight="800">$</text>
+      <text x="144" y="365" fill="#24435c" font-size="7" font-weight="700">Business</text><text x="144" y="377" fill="#7b91a0" font-size="6">96 courses</text>
+      <rect x="242" y="311" width="100" height="82" rx="9" fill="#f4efff"/>
+      <circle cx="265" cy="335" r="12" fill="#ded0ff"/><path d="M260 339l5-9 5 9z" fill="#8562da"/>
+      <text x="254" y="365" fill="#24435c" font-size="7" font-weight="700">Creative arts</text><text x="254" y="377" fill="#7b91a0" font-size="6">74 courses</text>
+    </g>
+    <rect x="22" y="410" width="328" height="111" rx="10" fill="#f7fbff"/>
+    <circle cx="63" cy="457" r="24" fill="#ffd5bc"/>
+    <path d="M40 455q2-28 25-24 18 5 20 24l-10-11-9-3q-10 10-26 14" fill="#49352d"/>
+    <path d="M40 481q24-18 47 0" fill="#44a6d7"/>
+    <text x="99" y="440" fill="#eab83c" font-family="Arial,sans-serif" font-size="12">★★★★★</text>
+    <text x="99" y="460" fill="#405a6b" font-family="Arial,sans-serif" font-size="8" font-style="italic">“I found a path I genuinely love.</text>
+    <text x="99" y="473" fill="#405a6b" font-family="Arial,sans-serif" font-size="8" font-style="italic">Bravo helped me take the first step.”</text>
+    <text x="99" y="496" fill="#183854" font-family="Arial,sans-serif" font-size="7" font-weight="700">Maya K.  ·  STEM learner</text>
+    <text x="22" y="554" fill="#183854" font-family="Arial,sans-serif" font-size="9" font-weight="800">A little progress adds up</text>
+    <g fill="#eaf4fb"><rect x="22" y="565" width="75" height="45" rx="6"/><rect x="106" y="565" width="75" height="45" rx="6"/><rect x="190" y="565" width="75" height="45" rx="6"/><rect x="274" y="565" width="75" height="45" rx="6"/></g>
+    <text x="32" y="584" fill="#147ee6" font-family="Arial,sans-serif" font-size="12" font-weight="800">24k+</text><text x="32" y="598" fill="#7890a0" font-family="Arial,sans-serif" font-size="6">learners</text>
+    <text x="116" y="584" fill="#147ee6" font-family="Arial,sans-serif" font-size="12" font-weight="800">320+</text><text x="116" y="598" fill="#7890a0" font-family="Arial,sans-serif" font-size="6">expert courses</text>
+    <text x="200" y="584" fill="#147ee6" font-family="Arial,sans-serif" font-size="12" font-weight="800">4.9/5</text><text x="200" y="598" fill="#7890a0" font-family="Arial,sans-serif" font-size="6">learner rating</text>
+    <rect x="14" y="624" width="344" height="21" rx="7" fill="#eaf4fb"/>
+    <text x="186" y="638" text-anchor="middle" fill="#316080" font-family="Arial,sans-serif" font-size="7" font-weight="700">01 · BRAVO ACADEMY  /  BRIGHT &amp; ENERGETIC</text>
+  </g>
+
+  <g transform="translate(493 159) rotate(1.3 190 326)" filter="url(#softShadow)">
+    <rect width="372" height="663" rx="16" fill="#f9fafb"/>
+    <rect x="8" y="8" width="356" height="647" rx="11" fill="#fafbf9"/>
+    <rect x="8" y="8" width="356" height="39" rx="11" fill="#f9fbf9"/>
+    <use href="#brandGreen" x="22" y="15" width="22" height="22"/>
+    <text x="50" y="31" fill="#1c3833" font-family="Arial,sans-serif" font-size="11" font-weight="800">BRAVO</text>
+    <text x="123" y="30" fill="#72817c" font-family="Arial,sans-serif" font-size="7">Explore</text>
+    <text x="164" y="30" fill="#72817c" font-family="Arial,sans-serif" font-size="7">Learning paths</text>
+    <text x="229" y="30" fill="#72817c" font-family="Arial,sans-serif" font-size="7">Mentors</text>
+    <rect x="285" y="17" width="59" height="19" rx="9" fill="#183a33"/>
+    <text x="314" y="30" text-anchor="middle" fill="#fff" font-family="Arial,sans-serif" font-size="7" font-weight="700">My account</text>
+    <rect x="8" y="47" width="356" height="196" fill="url(#emeraldHero)"/>
+    <circle cx="291" cy="142" r="87" fill="#9ad7b0" opacity=".12"/>
+    <path d="M231 183h120M243 157h97M256 130h71M269 103h44" stroke="#a8e1ba" stroke-width="2" opacity=".65"/>
+    <g fill="#d0f0d7" stroke="#183a33" stroke-width="2">
+      <circle cx="255" cy="157" r="8"/><circle cx="281" cy="130" r="8"/><circle cx="307" cy="103" r="8"/><circle cx="335" cy="77" r="8"/>
+    </g>
+    <path d="M255 157l26-27 26-27 28-26" fill="none" stroke="#70d7a5" stroke-width="2" stroke-dasharray="4 4"/>
+    <text x="25" y="91" fill="#7ee0b0" font-family="Arial,sans-serif" font-size="8" font-weight="700" letter-spacing="1.7">YOUR NEXT CHAPTER STARTS HERE</text>
+    <text x="25" y="126" fill="#fff" font-family="Arial,sans-serif" font-size="20" font-weight="800">A smarter way</text>
+    <text x="25" y="150" fill="#fff" font-family="Arial,sans-serif" font-size="20" font-weight="800">to move forward.</text>
+    <text x="25" y="173" fill="#c5ddd3" font-family="Arial,sans-serif" font-size="7">A clear learning path, expert guidance, and goals</text>
+    <text x="25" y="184" fill="#c5ddd3" font-family="Arial,sans-serif" font-size="7">that turn ambition into measurable progress.</text>
+    <rect x="25" y="201" width="108" height="24" rx="12" fill="#8fe0ac"/>
+    <text x="79" y="217" text-anchor="middle" fill="#173831" font-family="Arial,sans-serif" font-size="7" font-weight="800">Build my learning path</text>
+    <text x="23" y="267" fill="#1b3832" font-family="Arial,sans-serif" font-size="10" font-weight="800">A path that grows with you</text>
+    <rect x="23" y="278" width="326" height="91" rx="9" fill="#f0f5f1"/>
+    <path d="M51 330h269" stroke="#7ab397" stroke-width="2" stroke-dasharray="4 4"/>
+    <g font-family="Arial,sans-serif" text-anchor="middle">
+      <circle cx="63" cy="330" r="15" fill="#19483c"/><text x="63" y="333" fill="#fff" font-size="7" font-weight="700">01</text>
+      <circle cx="146" cy="330" r="15" fill="#4a8d70"/><text x="146" y="333" fill="#fff" font-size="7" font-weight="700">02</text>
+      <circle cx="229" cy="330" r="15" fill="#76b993"/><text x="229" y="333" fill="#fff" font-size="7" font-weight="700">03</text>
+      <circle cx="312" cy="330" r="15" fill="#d7e6db" stroke="#83ac93"/><text x="312" y="333" fill="#315744" font-size="7" font-weight="700">04</text>
+      <text x="63" y="358" fill="#355349" font-size="6">Discover</text><text x="146" y="358" fill="#355349" font-size="6">Learn</text><text x="229" y="358" fill="#355349" font-size="6">Practice</text><text x="312" y="358" fill="#355349" font-size="6">Certify</text>
+    </g>
+    <text x="23" y="396" fill="#1b3832" font-family="Arial,sans-serif" font-size="10" font-weight="800">Live sessions on your calendar</text>
+    <rect x="23" y="407" width="326" height="54" rx="8" fill="#fff" stroke="#e4ebe4"/>
+    <rect x="32" y="416" width="40" height="36" rx="6" fill="#eaf5ed"/>
+    <text x="52" y="430" text-anchor="middle" fill="#39785c" font-family="Arial,sans-serif" font-size="6" font-weight="700">JUN</text><text x="52" y="446" text-anchor="middle" fill="#214437" font-family="Arial,sans-serif" font-size="13" font-weight="800">18</text>
+    <text x="83" y="426" fill="#24433a" font-family="Arial,sans-serif" font-size="7" font-weight="700">Designing for a sustainable future</text>
+    <text x="83" y="440" fill="#83928b" font-family="Arial,sans-serif" font-size="6">10:30 AM  ·  Live workshop  ·  45 min</text>
+    <rect x="283" y="420" width="53" height="20" rx="10" fill="#e7f4eb"/><text x="309" y="433" text-anchor="middle" fill="#377353" font-family="Arial,sans-serif" font-size="6" font-weight="700">Reserve</text>
+    <rect x="23" y="469" width="326" height="54" rx="8" fill="#fff" stroke="#e4ebe4"/>
+    <rect x="32" y="478" width="40" height="36" rx="6" fill="#eaf5ed"/>
+    <text x="52" y="492" text-anchor="middle" fill="#39785c" font-family="Arial,sans-serif" font-size="6" font-weight="700">JUN</text><text x="52" y="508" text-anchor="middle" fill="#214437" font-family="Arial,sans-serif" font-size="13" font-weight="800">21</text>
+    <text x="83" y="488" fill="#24433a" font-family="Arial,sans-serif" font-size="7" font-weight="700">From data to confident decisions</text>
+    <text x="83" y="502" fill="#83928b" font-family="Arial,sans-serif" font-size="6">2:00 PM  ·  Expert webinar  ·  60 min</text>
+    <rect x="283" y="482" width="53" height="20" rx="10" fill="#e7f4eb"/><text x="309" y="495" text-anchor="middle" fill="#377353" font-family="Arial,sans-serif" font-size="6" font-weight="700">Reserve</text>
+    <rect x="23" y="538" width="326" height="76" rx="9" fill="#f1f5f1"/>
+    <circle cx="63" cy="575" r="22" fill="#d8bc9d"/>
+    <path d="M42 575q1-25 23-22 16 3 18 24l-10-9-9-2-17 10" fill="#302b27"/>
+    <text x="98" y="558" fill="#71837a" font-family="Arial,sans-serif" font-size="6" font-weight="700" letter-spacing="1">FEATURED INSTRUCTOR</text>
+    <text x="98" y="575" fill="#1c3c33" font-family="Arial,sans-serif" font-size="9" font-weight="800">Dr. Amina Yusuf</text>
+    <text x="98" y="589" fill="#708078" font-family="Arial,sans-serif" font-size="6">Researcher · 12 years guiding curious minds</text>
+    <rect x="23" y="624" width="326" height="21" rx="7" fill="#eaf1eb"/>
+    <text x="186" y="638" text-anchor="middle" fill="#416352" font-family="Arial,sans-serif" font-size="7" font-weight="700">02 · BRAVO DISCOVERY  /  STRUCTURED &amp; PROFESSIONAL</text>
+  </g>
+
+  <g transform="translate(928 173) rotate(-1.1 190 326)" filter="url(#softShadow)">
+    <rect width="372" height="663" rx="16" fill="#f9fafb"/>
+    <rect x="8" y="8" width="356" height="647" rx="11" fill="#fff"/>
+    <rect x="8" y="8" width="356" height="39" rx="11" fill="#fdfcff"/>
+    <use href="#brandPurple" x="22" y="15" width="22" height="22"/>
+    <text x="50" y="31" fill="#32284f" font-family="Arial,sans-serif" font-size="11" font-weight="800">BRAVO</text>
+    <text x="123" y="30" fill="#786f8b" font-family="Arial,sans-serif" font-size="7">Community</text>
+    <text x="176" y="30" fill="#786f8b" font-family="Arial,sans-serif" font-size="7">Stories</text>
+    <text x="215" y="30" fill="#786f8b" font-family="Arial,sans-serif" font-size="7">Mentors</text>
+    <circle cx="329" cy="27" r="10" fill="#e5dcff"/><text x="329" y="30" text-anchor="middle" fill="#6950a9" font-family="Arial,sans-serif" font-size="7" font-weight="700">J</text>
+    <rect x="8" y="47" width="356" height="178" fill="url(#purpleHero)"/>
+    <circle cx="284" cy="113" r="49" fill="#f7c4a4"/>
+    <path d="M235 111q4-58 54-49 42 7 47 58l-20-17-21-19q-22 28-60 27" fill="#473735"/>
+    <path d="M237 223q8-75 51-75 53 0 61 75" fill="#8064cc"/>
+    <circle cx="339" cy="159" r="32" fill="#8b78df"/>
+    <circle cx="339" cy="149" r="12" fill="#e7b08c"/>
+    <path d="M316 173q23-19 46 0" fill="#f39d78"/>
+    <circle cx="222" cy="184" r="22" fill="#d99d7b"/>
+    <path d="M201 183q4-33 29-25 17 5 17 28l-13-10-11 0-19 12" fill="#242b37"/>
+    <path d="M199 224q9-36 33-36 26 0 34 36" fill="#f1a94c"/>
+    <text x="27" y="85" fill="#7355bb" font-family="Arial,sans-serif" font-size="8" font-weight="700" letter-spacing="1.5">MAKE ROOM FOR WHAT'S POSSIBLE</text>
+    <text x="27" y="117" fill="#352a52" font-family="Arial,sans-serif" font-size="20" font-weight="900">Better together.</text>
+    <text x="27" y="139" fill="#352a52" font-family="Arial,sans-serif" font-size="20" font-weight="900">Brighter by design.</text>
+    <text x="27" y="161" fill="#665b7e" font-family="Arial,sans-serif" font-size="7">Learn alongside a community that helps your</text>
+    <text x="27" y="172" fill="#665b7e" font-family="Arial,sans-serif" font-size="7">ideas take shape and your confidence grow.</text>
+    <rect x="27" y="188" width="105" height="24" rx="12" fill="#7254c0"/>
+    <text x="79" y="204" text-anchor="middle" fill="#fff" font-family="Arial,sans-serif" font-size="7" font-weight="700">Meet your community</text>
+    <text x="23" y="251" fill="#342b4c" font-family="Arial,sans-serif" font-size="10" font-weight="800">A community in motion</text>
+    <text x="321" y="251" fill="#806ac2" font-family="Arial,sans-serif" font-size="7" font-weight="700">View all →</text>
+    <rect x="23" y="262" width="326" height="140" rx="9" fill="#fff" stroke="#eeeaf5"/>
+    <circle cx="43" cy="281" r="11" fill="#f2d3bb"/><text x="61" y="279" fill="#413755" font-family="Arial,sans-serif" font-size="7" font-weight="700">Nadia A. shared a project</text>
+    <text x="61" y="291" fill="#988ea2" font-family="Arial,sans-serif" font-size="6">2 hours ago  ·  Creative studio</text>
+    <rect x="35" y="303" width="302" height="71" rx="7" fill="#eee9ff"/>
+    <rect x="44" y="311" width="74" height="55" rx="5" fill="#d8ccff"/>
+    <path d="M50 356l18-25 12 13 13-18 19 30z" fill="#8d75d5"/>
+    <circle cx="99" cy="321" r="5" fill="#ffd97c"/>
+    <text x="130" y="326" fill="#403456" font-family="Arial,sans-serif" font-size="7" font-weight="700">A tiny garden for busy</text>
+    <text x="130" y="338" fill="#403456" font-family="Arial,sans-serif" font-size="7" font-weight="700">city balconies</text>
+    <text x="130" y="353" fill="#81758f" font-family="Arial,sans-serif" font-size="6">“Small spaces can still make</text>
+    <text x="130" y="363" fill="#81758f" font-family="Arial,sans-serif" font-size="6">room for a little wonder.”</text>
+    <text x="35" y="391" fill="#887a98" font-family="Arial,sans-serif" font-size="6">♡  28   ·   ◯  12 comments   ·   ↗ Share</text>
+    <text x="23" y="427" fill="#342b4c" font-family="Arial,sans-serif" font-size="10" font-weight="800">Find the mentor who gets you</text>
+    <rect x="23" y="438" width="326" height="91" rx="9" fill="#f9f7fe"/>
+    <circle cx="68" cy="479" r="26" fill="#eac3a8"/>
+    <path d="M42 478q2-33 28-28 23 4 25 31l-13-12-11-7-27 20" fill="#282b32"/>
+    <path d="M43 508q5-34 25-34 25 0 29 34" fill="#b9a2ed"/>
+    <text x="111" y="464" fill="#352a52" font-family="Arial,sans-serif" font-size="9" font-weight="800">Maya Chen</text>
+    <text x="111" y="478" fill="#7d7190" font-family="Arial,sans-serif" font-size="6">Product designer · 8 years</text>
+    <text x="111" y="492" fill="#7d7190" font-family="Arial,sans-serif" font-size="6">Helping makers turn bold ideas</text>
+    <text x="111" y="502" fill="#7d7190" font-family="Arial,sans-serif" font-size="6">into thoughtful experiences.</text>
+    <rect x="275" y="466" width="59" height="21" rx="10" fill="#7254c0"/><text x="304" y="480" text-anchor="middle" fill="#fff" font-family="Arial,sans-serif" font-size="6" font-weight="700">Say hello</text>
+    <rect x="23" y="545" width="326" height="68" rx="9" fill="#f5f1fc"/>
+    <text x="39" y="568" fill="#42345d" font-family="Arial,sans-serif" font-size="8" font-weight="800">Your people are already here</text>
+    <circle cx="47" cy="588" r="11" fill="#e5bd9e"/><circle cx="70" cy="588" r="11" fill="#b87b63"/><circle cx="93" cy="588" r="11" fill="#d7a389"/><circle cx="116" cy="588" r="11" fill="#816252"/>
+    <text x="139" y="592" fill="#76698a" font-family="Arial,sans-serif" font-size="7">Join 18,000 curious minds</text>
+    <rect x="14" y="624" width="344" height="21" rx="7" fill="#f0ebfb"/>
+    <text x="186" y="638" text-anchor="middle" fill="#5b4b83" font-family="Arial,sans-serif" font-size="7" font-weight="700">03 · BRAVO CONNECT  /  WARM &amp; COMMUNITY-LED</text>
+  </g>
+
+  <g transform="translate(1363 159) rotate(2 190 326)" filter="url(#softShadow)">
+    <rect width="372" height="663" rx="16" fill="#f9fafb"/>
+    <rect x="8" y="8" width="356" height="647" rx="11" fill="#111925"/>
+    <rect x="8" y="8" width="356" height="39" rx="11" fill="#151d2a"/>
+    <use href="#brandGold" x="22" y="15" width="22" height="22"/>
+    <text x="50" y="31" fill="#f0e2bd" font-family="Arial,sans-serif" font-size="11" font-weight="800">BRAVO</text>
+    <text x="123" y="30" fill="#9da5b3" font-family="Arial,sans-serif" font-size="7">Programs</text>
+    <text x="164" y="30" fill="#9da5b3" font-family="Arial,sans-serif" font-size="7">Credentials</text>
+    <text x="222" y="30" fill="#9da5b3" font-family="Arial,sans-serif" font-size="7">For teams</text>
+    <rect x="288" y="17" width="56" height="19" rx="9" fill="#d8b568"/>
+    <text x="316" y="30" text-anchor="middle" fill="#192130" font-family="Arial,sans-serif" font-size="7" font-weight="800">Get started</text>
+    <rect x="8" y="47" width="356" height="207" fill="url(#goldHero)"/>
+    <circle cx="307" cy="132" r="91" fill="#d9b66d" opacity=".08"/>
+    <circle cx="307" cy="132" r="67" fill="none" stroke="#d6b66e" stroke-width="1" opacity=".42"/>
+    <circle cx="307" cy="132" r="47" fill="none" stroke="#d6b66e" stroke-width="1" opacity=".3"/>
+    <path d="M249 157l38-39 24 20 47-49" fill="none" stroke="#ddbf79" stroke-width="3"/>
+    <circle cx="249" cy="157" r="4" fill="#e4c981"/><circle cx="287" cy="118" r="4" fill="#e4c981"/><circle cx="311" cy="138" r="4" fill="#e4c981"/><circle cx="358" cy="89" r="4" fill="#e4c981"/>
+    <text x="25" y="86" fill="#d9bd7a" font-family="Arial,sans-serif" font-size="8" font-weight="700" letter-spacing="1.5">LEARN WITH INTENTION</text>
+    <text x="25" y="118" fill="#f6f1e7" font-family="Arial,sans-serif" font-size="19" font-weight="800">Make expertise</text>
+    <text x="25" y="141" fill="#f6f1e7" font-family="Arial,sans-serif" font-size="19" font-weight="800">your advantage.</text>
+    <text x="25" y="165" fill="#aeb6c4" font-family="Arial,sans-serif" font-size="7">Industry-recognized credentials for people</text>
+    <text x="25" y="176" fill="#aeb6c4" font-family="Arial,sans-serif" font-size="7">ready to do their most meaningful work.</text>
+    <rect x="25" y="195" width="108" height="24" rx="12" fill="#d9b66d"/>
+    <text x="79" y="211" text-anchor="middle" fill="#1a2230" font-family="Arial,sans-serif" font-size="7" font-weight="800">Explore credentials</text>
+    <text x="23" y="277" fill="#f1ead9" font-family="Arial,sans-serif" font-size="10" font-weight="800">Your proficiency, at a glance</text>
+    <rect x="23" y="288" width="326" height="145" rx="9" fill="#1a2433" stroke="#2b3747"/>
+    <text x="40" y="311" fill="#c0c6d0" font-family="Arial,sans-serif" font-size="7" font-weight="700">LEADERSHIP &amp; STRATEGY</text>
+    <text x="324" y="311" text-anchor="end" fill="#d9b66d" font-family="Arial,sans-serif" font-size="7" font-weight="700">ADVANCED</text>
+    <path d="M41 331h275M41 353h275M41 375h275M41 397h275" stroke="#344153" stroke-width="1"/>
+    <path d="M45 391c27-17 37-3 58-19s38-7 58-22 38 3 54-11 39-2 75-23" fill="none" stroke="#dbba70" stroke-width="3"/>
+    <g fill="#e4c981"><circle cx="45" cy="391" r="3"/><circle cx="103" cy="372" r="3"/><circle cx="161" cy="350" r="3"/><circle cx="215" cy="339" r="3"/><circle cx="290" cy="316" r="3"/></g>
+    <text x="23" y="459" fill="#f1ead9" font-family="Arial,sans-serif" font-size="10" font-weight="800">Milestones worth celebrating</text>
+    <rect x="23" y="471" width="326" height="62" rx="8" fill="#1a2433" stroke="#2b3747"/>
+    <circle cx="48" cy="502" r="13" fill="#d9b66d"/><path d="M42 502l4 4 8-9" fill="none" stroke="#192130" stroke-width="2"/>
+    <text x="72" y="495" fill="#f0eadc" font-family="Arial,sans-serif" font-size="7" font-weight="700">Strategic leadership foundations</text>
+    <text x="72" y="509" fill="#9ca7b5" font-family="Arial,sans-serif" font-size="6">Completed  ·  Credential verified</text>
+    <text x="72" y="522" fill="#d8bd7d" font-family="Arial,sans-serif" font-size="6">VIEW CERTIFICATE  ↗</text>
+    <rect x="23" y="544" width="326" height="69" rx="8" fill="#202c3c"/>
+    <text x="39" y="565" fill="#dac27f" font-family="Arial,sans-serif" font-size="7" font-weight="700" letter-spacing=".8">TRUSTED BY AMBITIOUS TEAMS</text>
+    <g fill="#e4e6e9" font-family="Arial,sans-serif" font-weight="800" font-size="8">
+      <text x="43" y="592">NORTHSTAR</text><text x="129" y="592">MONO</text><text x="191" y="592">●  vertex</text><text x="275" y="592">ALTURA</text>
+    </g>
+    <rect x="14" y="624" width="344" height="21" rx="7" fill="#202c3c"/>
+    <text x="186" y="638" text-anchor="middle" fill="#d7c286" font-family="Arial,sans-serif" font-size="7" font-weight="700">04 · BRAVO PRO  /  PREMIUM &amp; PERFORMANCE-LED</text>
+  </g>
+
+  <!-- Design studio tools in the foreground -->
+  <g transform="rotate(-8 237 1000)" filter="url(#paperShadow)">
+    <rect x="104" y="886" width="310" height="220" rx="7" fill="#f8f6ee"/>
+    <rect x="121" y="902" width="277" height="186" rx="2" fill="#fffefa" stroke="#dedbd1"/>
+    <path d="M145 927h220M145 951h150M145 975h187M145 999h112" stroke="#d7d4cb" stroke-width="2"/>
+    <path d="M145 1030c29-20 38-18 58 0s43 12 58-8 40-17 57 2" fill="none" stroke="#4795a4" stroke-width="3"/>
+    <circle cx="145" cy="927" r="4" fill="#e6b45e"/>
+    <text x="145" y="1067" fill="#9d9789" font-family="Arial,sans-serif" font-size="9" font-weight="700" letter-spacing="2">IDEAS BECOME REAL</text>
+  </g>
+  <g transform="rotate(18 1513 1005)" filter="url(#paperShadow)">
+    <rect x="1485" y="858" width="19" height="246" rx="9" fill="#333d4b"/>
+    <rect x="1489" y="877" width="11" height="190" rx="5" fill="#3ba9a4"/>
+    <path d="M1485 858q9-28 19 0l-9 17z" fill="#d6dbe0"/>
+    <path d="M1490 1104l5 23 7-23" fill="#303744"/>
+  </g>
+  <g transform="rotate(-22 1638 1020)" filter="url(#paperShadow)">
+    <rect x="1627" y="867" width="17" height="248" rx="8" fill="#fffaf0"/>
+    <rect x="1629" y="900" width="13" height="177" rx="5" fill="#e6ad54"/>
+    <path d="M1627 867q8-25 17 0l-8 17z" fill="#d2c8b7"/>
+    <path d="M1629 1115l7-21 8 21" fill="#b59c76"/>
+  </g>
+  <g transform="rotate(5 1310 1024)" filter="url(#paperShadow)">
+    <rect x="1231" y="941" width="162" height="130" rx="9" fill="#d8e8e2"/>
+    <rect x="1240" y="950" width="144" height="112" rx="6" fill="#f5faf7"/>
+    <path d="M1256 1028l31-38 24 22 17-17 39 40h-111z" fill="#86b9a4"/>
+    <circle cx="1356" cy="976" r="9" fill="#e9c879"/>
+    <text x="1312" y="1052" text-anchor="middle" fill="#547669" font-family="Arial,sans-serif" font-size="7" font-weight="700" letter-spacing="1">MOODBOARD</text>
+  </g>
+
+  <!-- Collaborating designer hands -->
+  <g filter="url(#paperShadow)">
+    <path d="M0 1199v-134c20-22 42-33 66-39l83-20c17-4 27 9 19 21l-36 35 81-27c22-8 39 13 25 30l-46 48c-19 20-42 33-69 41l-83 45z" fill="url(#skinB)"/>
+    <path d="M140 1041l33-35c8-9 21 2 14 11l-28 33m43-20l31-28c9-7 20 5 12 13l-35 33" fill="none" stroke="#bd8362" stroke-width="10" stroke-linecap="round"/>
+    <path d="M1800 1198v-144c-18-20-40-32-66-38l-83-19c-17-4-27 9-18 21l35 34-82-27c-21-7-38 14-24 30l47 48c19 20 42 32 68 41l84 45z" fill="url(#skinA)"/>
+    <path d="M1661 1044l-33-36c-8-8-20 3-13 12l28 33m-43-20l-30-28c-9-7-20 5-12 13l34 33" fill="none" stroke="#d89e7a" stroke-width="10" stroke-linecap="round"/>
+    <path d="M1128 1200v-58l42-46c14-15 33-1 25 13l-21 32 45-38c17-14 34 5 22 20l-50 63-28 14z" fill="url(#skinC)"/>
+  </g>
+  <g opacity=".42" fill="none" stroke="#fff" stroke-width="3">
+    <path d="M54 1084l61-17m-73 43l55-14M1715 1080l-59-16m72 44l-53-14"/>
+  </g>
+
+  <!-- Small concept index -->
+  <g transform="translate(734 1091)">
+    <rect width="332" height="55" rx="27" fill="#26343b" opacity=".94"/>
+    <circle cx="37" cy="27" r="7" fill="#2585db"/><circle cx="86" cy="27" r="7" fill="#56c292"/><circle cx="135" cy="27" r="7" fill="#9a7ce4"/><circle cx="184" cy="27" r="7" fill="#d9b66d"/>
+    <text x="211" y="25" fill="#fff" font-family="Arial,sans-serif" font-size="8" font-weight="700" letter-spacing="1">4 DIRECTIONS</text>
+    <text x="211" y="37" fill="#c6d0d0" font-family="Arial,sans-serif" font-size="7">ONE BRAVO LEARNING COMMUNITY</text>
+  </g>
+</svg>
