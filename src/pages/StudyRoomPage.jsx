@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  BookOpen, Check, Clock3, Download, FileText, FolderOpen, HardDrive,
+  BookOpen, Check, Clock3, Download, FileText, FolderOpen, HardDrive, Image as ImageIcon,
   Pencil, Presentation, RefreshCw, RotateCcw, Search, Trash2, Upload,
   Wifi, WifiOff, X,
 } from 'lucide-react';
@@ -13,6 +13,7 @@ import { supabase } from '../lib/supabase.js';
 import {
   deleteStudyDocument,
   getLocalStudySummary,
+  getStudyStorageStatus,
   listStudyDocuments,
   recoverInterruptedStudySessions,
   saveStudyDocument,
@@ -42,6 +43,7 @@ function formatDuration(seconds) {
 
 function MaterialIcon({ type }) {
   if (type === 'ppt' || type === 'pptx') return <Presentation size={18} />;
+  if (['jpg', 'jpeg', 'png', 'webp'].includes(type)) return <ImageIcon size={18} />;
   return <FileText size={18} />;
 }
 
@@ -80,6 +82,8 @@ export default function StudyRoomPage() {
   const [selectedDocumentId, setSelectedDocumentId] = useState('');
   const [resumeDocument, setResumeDocument] = useState(null);
   const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [category, setCategory] = useState('');
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(true);
   const [savingFile, setSavingFile] = useState(false);
@@ -88,6 +92,7 @@ export default function StudyRoomPage() {
   const [summary, setSummary] = useState({ document_count: 0, pending_session_count: 0, pending_active_seconds: 0 });
   const [editingId, setEditingId] = useState('');
   const [editTitle, setEditTitle] = useState('');
+  const [storageStatus, setStorageStatus] = useState({ persistent: false, usage: null, quota: null, warnings: [] });
   const recoveredUserRef = useRef('');
 
   const selectedDocument = documents.find((document) => document.id === selectedDocumentId) || null;
@@ -95,16 +100,27 @@ export default function StudyRoomPage() {
     documentId: selectedDocument?.id,
     userId,
     initialPage: selectedDocument?.progress_page || 1,
+    syncEnabled: !['jpg', 'jpeg', 'png', 'webp'].includes(selectedDocument?.file_type),
   });
 
   const visibleDocuments = useMemo(() => {
     const searchText = search.trim().toLowerCase();
-    if (!searchText) return documents;
-    return documents.filter((document) => (
-      document.title.toLowerCase().includes(searchText) ||
-      document.file_type.includes(searchText)
-    ));
-  }, [documents, search]);
+    return documents.filter((document) => {
+      const matchesSearch = !searchText ||
+        document.title.toLowerCase().includes(searchText) ||
+        document.file_name.toLowerCase().includes(searchText);
+      const matchesType = typeFilter === 'all' ||
+        (typeFilter === 'image' && ['jpg', 'jpeg', 'png', 'webp'].includes(document.file_type)) ||
+        (typeFilter === 'presentation' && ['ppt', 'pptx'].includes(document.file_type)) ||
+        document.file_type === typeFilter;
+      return matchesSearch && matchesType;
+    });
+  }, [documents, search, typeFilter]);
+  const offlineCourseCopies = useMemo(() => (
+    new Map(documents
+      .filter((document) => document.source_type === 'course' && document.source_material_id)
+      .map((document) => [document.source_material_id, document]))
+  ), [documents]);
 
   const refreshDocuments = useCallback(async () => {
     const nextDocuments = await listStudyDocuments(userId);
@@ -121,6 +137,23 @@ export default function StudyRoomPage() {
       setError(summaryError.message || 'Local study information could not be loaded.');
     }
   }, [userId]);
+
+  const refreshStorageStatus = useCallback(async (requestPersistence = false) => {
+    try {
+      setStorageStatus(await getStudyStorageStatus({ requestPersistence }));
+    } catch (storageError) {
+      setStorageStatus({
+        persistent: false,
+        usage: null,
+        quota: null,
+        warnings: [storageError.message || 'Local storage status could not be checked.'],
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshStorageStatus(true);
+  }, [refreshStorageStatus]);
 
   useEffect(() => {
     let active = true;
@@ -168,7 +201,7 @@ export default function StudyRoomPage() {
   useEffect(() => {
     let active = true;
     async function loadCourseMaterials() {
-      if (!isOnline || !userId) { setCourseMaterials([]); setCourseMaterialsError(''); return; }
+      if (!isOnline || !userId || !supabase) { setCourseMaterials([]); setCourseMaterialsError(''); return; }
       const { data, error: loadError } = await supabase.from('academic_materials')
         .select('id, title, description, object_path, mime_type, size_bytes, courses(code, title)')
         .eq('active', true).order('created_at', { ascending: false }).limit(200);
@@ -187,18 +220,38 @@ export default function StudyRoomPage() {
     setSavingFile(true);
     setError('');
     setSyncMessage('');
+    await refreshStorageStatus(true);
+    const savedDocuments = [];
+    const failures = [];
     try {
-      const savedDocuments = [];
-      for (const file of files) savedDocuments.push(await saveStudyDocument(file, userId));
+      for (const file of files) {
+        try {
+          savedDocuments.push(await saveStudyDocument(file, userId, {
+            category: category.trim() || null,
+          }));
+        } catch (saveError) {
+          failures.push(`${file.name || 'Selected file'}: ${saveError.message || 'could not be saved.'}`);
+        }
+      }
       const nextDocuments = await refreshDocuments();
       await refreshSummary();
       if (savedDocuments.length === 1) setSelectedDocumentId(savedDocuments[0].id);
       else if (nextDocuments.length && !selectedDocumentId) setSelectedDocumentId(nextDocuments[0].id);
+      const addedCount = savedDocuments.filter((document) => !document.duplicate).length;
+      const duplicateCount = savedDocuments.length - addedCount;
+      if (savedDocuments.length) {
+        setSyncMessage([
+          addedCount ? `${addedCount} material${addedCount === 1 ? '' : 's'} saved on this device.` : '',
+          duplicateCount ? `${duplicateCount} duplicate${duplicateCount === 1 ? '' : 's'} already saved.` : '',
+        ].filter(Boolean).join(' '));
+      }
+      if (failures.length) setError(failures.join(' '));
     } catch (saveError) {
-      setError(saveError.message || 'The material could not be saved in this browser.');
+      setError(`Some files may already have been saved, but the library could not be refreshed: ${saveError.message || 'local storage error'}`);
     } finally {
       setSavingFile(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      refreshStorageStatus();
     }
   }
 
@@ -220,12 +273,21 @@ export default function StudyRoomPage() {
         setSyncMessage(`${material.title} was downloaded. This format is not previewed in BRAVO; open it with a compatible app.`);
         return;
       }
-      const fileName = `${safeTitle}.${extension}`;
-      const stored = await saveStudyDocument(new File([data], fileName, { type: material.mime_type }), userId);
+      const storedFileName = material.object_path.split('/').pop()?.replace(/^[0-9a-f-]{36}-/i, '');
+      const fileName = storedFileName || `${safeTitle}.${extension}`;
+      const stored = await saveStudyDocument(new File([data], fileName, { type: material.mime_type }), userId, {
+        source_type: 'course',
+        source_material_id: material.id,
+        title: material.title,
+        category: material.courses?.code || material.courses?.title || 'Course material',
+        course: material.courses?.title || null,
+      });
       await refreshDocuments();
       await refreshSummary();
       setSelectedDocumentId(stored.id);
-      setSyncMessage(`${material.title} is saved on this device and ready offline.`);
+      setSyncMessage(stored.duplicate
+        ? `${material.title} is already downloaded and ready offline.`
+        : `${material.title} is saved on this device and ready offline.`);
     } catch (downloadError) {
       setCourseMaterialsError(getCourseMaterialDownloadError(downloadError));
     } finally { setDownloadingMaterial(''); }
@@ -245,8 +307,12 @@ export default function StudyRoomPage() {
 
       if (isOnline) {
         syncStudyDocument(opened, userId)
-          .then(() => setSyncMessage('Material metadata synced. The file and reading position stay on this device.'))
-          .catch(() => setSyncMessage('This material is ready offline. Its metadata will sync with your next study session.'));
+          .then((result) => {
+            if (result.status === 'synced') {
+              setSyncMessage('Material metadata synced. The file and reading position stay on this device.');
+            }
+          })
+          .catch((syncError) => setSyncMessage(syncError.message || 'Material metadata could not be synced.'));
       }
     } catch (openError) {
       setError(openError.message || 'This material could not be opened.');
@@ -268,16 +334,19 @@ export default function StudyRoomPage() {
     const updated = await updateStudyDocument(selectedDocumentId, {
       progress_page: page,
       page_count: pageCount,
-    }, userId).catch(() => null);
+    }, userId).catch((progressError) => {
+      setError(progressError.message || 'Reading progress could not be saved on this device.');
+      return null;
+    });
     if (updated) {
       setDocuments((current) => current.map((document) => (
         document.id === selectedDocumentId ? updated : document
       )));
     }
-  }, [markPageViewed, selectedDocumentId, userId]);
+  }, [markPageViewed, selectedDocumentId, setError, userId]);
 
   async function deleteDocument(document) {
-    if (!window.confirm(`Remove “${document.title}” from this device?`)) return;
+    if (!window.confirm(`Remove “${document.title}” from this device? This does not delete the official material from BRAVO.`)) return;
     try {
       const deleted = await deleteStudyDocument(document.id, userId);
       setDocuments((current) => current.filter((item) => item.id !== document.id));
@@ -342,11 +411,23 @@ export default function StudyRoomPage() {
 
       <div className="study-info-banner">
         <HardDrive size={18} />
-        <p><strong>Your files and reading position stay on this device.</strong> BRAVO syncs material names, file types, sizes, open times, and study-session stats to award Bravos.</p>
+        <p><strong>Document files and reading progress stay in this browser.</strong> Study metadata and eligible session activity may sync to award Bravos; personal file contents are never uploaded. Browser storage can still be removed if site data is cleared.</p>
       </div>
 
       {error && <div className="study-message study-message-error" role="alert">{error}</div>}
       {syncMessage && <div className="study-message" role="status">{syncMessage}</div>}
+      {storageStatus.warnings.map((warning) => (
+        <div className="study-message study-storage-warning" role="status" key={warning}>
+          <HardDrive size={15} /> {warning}
+        </div>
+      ))}
+      {storageStatus.usage !== null && storageStatus.quota !== null && (
+        <div className="study-storage-status" role="status">
+          <HardDrive size={14} />
+          {formatBytes(storageStatus.usage)} used of {formatBytes(storageStatus.quota)} browser storage
+          {storageStatus.persistent ? ' · persistent storage granted' : ' · storage may be cleared by the browser'}
+        </div>
+      )}
 
       {selectedDocument && (
         <StudyDocumentViewer
@@ -372,17 +453,26 @@ export default function StudyRoomPage() {
         <span className="study-drop-icon"><Upload size={20} /></span>
         <div>
           <strong>{savingFile ? 'Saving on this device…' : 'Add lecture materials'}</strong>
-          <p>Choose or drop PDF, PPT, and PPTX files. The original files are not uploaded.</p>
+          <p>Choose or drop PDF, PPT, PPTX, JPG, PNG, or WEBP files (up to 50 MB each). File contents stay on this device.</p>
         </div>
+        <input
+          className="study-category-input"
+          type="text"
+          maxLength={80}
+          value={category}
+          onChange={(event) => setCategory(event.target.value)}
+          placeholder="Optional category"
+          aria-label="Optional material category"
+        />
         <button className="button button-primary button-small" type="button" disabled={savingFile} onClick={() => fileInputRef.current?.click()}>
-          <Upload size={15} /> Choose files
+          <Upload size={15} /> Add material
         </button>
         <input
           ref={fileInputRef}
           className="study-file-input"
           type="file"
           multiple
-          accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+          accept=".pdf,.ppt,.pptx,.jpg,.jpeg,.png,.webp,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,image/jpeg,image/png,image/webp"
           onChange={(event) => storeFiles(event.target.files)}
         />
       </div>
@@ -399,19 +489,45 @@ export default function StudyRoomPage() {
             return <article className="study-material-card official-material-card" key={material.id}>
               <div className={`study-material-icon ${extension === 'pdf' ? 'file-pdf' : extension ? 'file-pptx' : ''}`}><Icon size={18} /></div>
               <div className="study-material-copy"><h4 title={material.title}>{material.title}</h4><span>{material.courses?.code || material.courses?.title || 'Course'} · {formatBytes(material.size_bytes)}</span><small>{material.description || 'Official BRAVO course material'}</small></div>
-              <div className="study-material-actions"><button className="button button-outline button-small" type="button" onClick={() => downloadCourseMaterial(material)} disabled={downloadingMaterial === material.id}>{downloadingMaterial === material.id ? 'Downloading…' : extension ? <><BookOpen size={14} /> Save offline</> : <><Download size={14} /> Download</>}</button></div>
+              <div className="study-material-actions">
+                {offlineCourseCopies.has(material.id) ? (
+                  <>
+                    <button className="button button-outline button-small" type="button" onClick={() => requestOpenDocument(offlineCourseCopies.get(material.id))}>
+                      <BookOpen size={14} /> Open offline
+                    </button>
+                    <button className="study-icon-button is-danger" type="button" onClick={() => deleteDocument(offlineCourseCopies.get(material.id))} aria-label={`Remove offline copy of ${material.title}`} title="Remove offline copy">
+                      <Trash2 size={15} />
+                    </button>
+                  </>
+                ) : (
+                  <button className="button button-outline button-small" type="button" onClick={() => downloadCourseMaterial(material)} disabled={downloadingMaterial === material.id}>
+                    {downloadingMaterial === material.id ? 'Downloading…' : extension ? <><Download size={14} /> Download for offline</> : <><Download size={14} /> Download</>}
+                  </button>
+                )}
+              </div>
             </article>;
           })}</div> : <div className="study-empty-state official-library-empty"><span className="study-empty-icon"><BookOpen size={20} /></span><p>Official course files from your academic level and stream will appear here.</p></div>)}
         </div>
         <div className="study-library-heading">
         <div>
-          <div className="eyebrow">YOUR DEVICE LIBRARY</div>
+            <div className="eyebrow">MY MATERIALS · SAVED ON THIS DEVICE</div>
           <h3>{documents.length} material{documents.length === 1 ? '' : 's'}</h3>
         </div>
-        <label className="study-search">
-          <Search size={16} />
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search materials" />
-        </label>
+          <div className="study-library-filters">
+            <label className="study-search">
+              <Search size={16} />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search title or filename" />
+            </label>
+            <label className="study-filter">
+              <span className="sr-only">Filter by document type</span>
+              <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+                <option value="all">All types</option>
+                <option value="pdf">PDF</option>
+                <option value="image">Images</option>
+                <option value="presentation">Presentations</option>
+              </select>
+            </label>
+          </div>
       </div>
 
       {loading ? (
@@ -431,9 +547,15 @@ export default function StudyRoomPage() {
                 ) : (
                   <h4 title={document.title}>{document.title}</h4>
                 )}
-                <span>{document.file_type.toUpperCase()} · {formatBytes(document.size_bytes)}</span>
+                <span>{document.file_type.toUpperCase()} · {formatBytes(document.size_bytes)} · {document.source_type === 'course' ? 'Downloaded for offline' : 'Personal · file stays here'}</span>
                 <small>
-                  {document.page_count
+                  {document.category
+                    ? `${document.category} · ${document.page_count
+                      ? `page ${document.progress_page} of ${document.page_count}`
+                      : document.last_opened_at
+                        ? `last opened ${new Date(document.last_opened_at).toLocaleDateString()}`
+                        : 'not opened yet'}`
+                    : document.page_count
                     ? `Last position: page or slide ${document.progress_page} of ${document.page_count}`
                     : document.last_opened_at
                       ? `Last opened ${new Date(document.last_opened_at).toLocaleDateString()}`

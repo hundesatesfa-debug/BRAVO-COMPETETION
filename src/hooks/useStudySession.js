@@ -9,7 +9,7 @@ function canCountStudyTime() {
   return document.visibilityState === 'visible' && document.hasFocus();
 }
 
-export function useStudySession({ documentId, userId, initialPage = 1 }) {
+export function useStudySession({ documentId, userId, initialPage = 1, syncEnabled = true }) {
   const sessionRef = useRef(null);
   const lastCheckpointRef = useRef(0);
   const seenPagesRef = useRef(new Set([initialPage]));
@@ -33,7 +33,8 @@ export function useStudySession({ documentId, userId, initialPage = 1 }) {
       active_seconds: Math.floor(session.activeMs / 1000),
       interaction_count: session.interactionCount,
       pages_viewed: session.pagesViewed,
-      sync_status: finished ? 'pending' : 'active',
+      sync_enabled: syncEnabled,
+      sync_status: finished ? (syncEnabled ? 'pending' : 'local_only') : 'active',
       server_status: null,
       synced_at: null,
     };
@@ -42,13 +43,13 @@ export function useStudySession({ documentId, userId, initialPage = 1 }) {
       await saveStudySession(record);
       lastCheckpointRef.current = session.activeMs;
       if (!finished) setSaved(true);
-      if (finished && navigator.onLine) {
+      if (finished && syncEnabled && navigator.onLine) {
         syncPendingStudySessions(userId).catch(() => {});
       }
     } catch {
       setSaved(false);
     }
-  }, [documentId, userId]);
+  }, [documentId, syncEnabled, userId]);
 
   useEffect(() => {
     if (!documentId || !userId) return undefined;

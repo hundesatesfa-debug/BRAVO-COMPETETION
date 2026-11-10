@@ -26,6 +26,9 @@ function metadataFor(document, userId) {
 export async function syncStudyDocument(document, userId) {
   if (!supabase || !userId) return { status: 'unavailable' };
   if (!navigator.onLine) return { status: 'offline' };
+  if (!['pdf', 'ppt', 'pptx'].includes(document.file_type)) {
+    return { status: 'local_only' };
+  }
 
   const { error } = await supabase
     .from('study_documents_metadata')
@@ -59,10 +62,16 @@ export async function syncPendingStudySessions(userId) {
   const documentIds = [...new Set(pending.map((session) => session.document_id))];
   const documents = await Promise.all(documentIds.map((id) => getStudyDocument(id, userId)));
   const metadata = documents
-    .filter(Boolean)
+    .filter((document) => document && ['pdf', 'ppt', 'pptx'].includes(document.file_type))
     .map((document) => metadataFor(document, userId));
 
-  if (metadata.length !== documentIds.length) {
+  const syncableDocumentIds = new Set(metadata.map((document) => document.id));
+  const syncablePending = pending.filter((session) => syncableDocumentIds.has(session.document_id));
+  if (!syncablePending.length) {
+    return { status: 'current', synced: 0, awarded: 0 };
+  }
+
+  if (metadata.length !== new Set(syncablePending.map((session) => session.document_id)).size) {
     throw new Error('A local material is missing. Its study session was kept on this device.');
   }
 
@@ -75,8 +84,8 @@ export async function syncPendingStudySessions(userId) {
   let totalSynced = 0;
   let totalAwarded = 0;
 
-  for (let start = 0; start < pending.length; start += 25) {
-    const batch = pending.slice(start, start + 25);
+  for (let start = 0; start < syncablePending.length; start += 25) {
+    const batch = syncablePending.slice(start, start + 25);
     const payload = batch.map((session) => ({
       id: session.id,
       document_id: session.document_id,

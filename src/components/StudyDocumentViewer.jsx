@@ -146,12 +146,22 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
   const [pageInput, setPageInput] = useState(String(studyDocument.progress_page || 1));
   const [zoom, setZoom] = useState(1);
   const [fitScale, setFitScale] = useState(1);
+  const [imageDimensions, setImageDimensions] = useState(null);
+  const [viewport, setViewport] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [downloadUrl, setDownloadUrl] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchStatus, setSearchStatus] = useState('');
   const [searching, setSearching] = useState(false);
+  const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(studyDocument.file_type);
+  const imageFitScale = imageDimensions
+    ? Math.min(
+      1,
+      Math.max(0.1, (viewport.width - 36) / imageDimensions.width),
+      Math.max(0.1, (viewport.height - 96) / imageDimensions.height),
+    )
+    : 1;
 
   const updateCurrentPage = useCallback(() => {
     if (initialNavigationPendingRef.current || visiblePageFrameRef.current) return;
@@ -185,6 +195,7 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
     setPage(studyDocument.progress_page || 1);
     setPageInput(String(studyDocument.progress_page || 1));
     setPageCount(studyDocument.page_count || null);
+    setImageDimensions(null);
     initialNavigationPendingRef.current = false;
 
     function disposePowerPointViewer() {
@@ -227,6 +238,9 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
           initialPdfPageRef.current = firstPage;
           initialNavigationPendingRef.current = true;
           setPage(firstPage);
+        } else if (['jpg', 'jpeg', 'png', 'webp'].includes(extension)) {
+          setPage(1);
+          setPageCount(null);
         } else if (extension === 'ppt' || extension === 'pptx') {
           const presentation = await parse(studyDocument.blob);
           if (!active || !stageRef.current) return;
@@ -322,6 +336,12 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
     return () => { document.body.style.overflow = previousOverflow; };
   }, []);
 
+  useEffect(() => {
+    const updateViewport = () => setViewport({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener('resize', updateViewport);
+    return () => window.removeEventListener('resize', updateViewport);
+  }, []);
+
   const goToPage = useCallback((nextPage) => {
     const boundedPage = Math.max(1, Math.min(pageCount || 1, Number(nextPage) || 1));
     setPage(boundedPage);
@@ -384,9 +404,9 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
   }, [goToPage, page, pageCount, searchTerm]);
 
   const closeReader = useCallback(async () => {
-    if (pageCount) await onPageChange(page, pageCount);
+    if (pageCount && !isImage) await onPageChange(page, pageCount);
     onClose();
-  }, [onClose, onPageChange, page, pageCount]);
+  }, [isImage, onClose, onPageChange, page, pageCount]);
 
   useEffect(() => {
     function handleKeyDown(event) {
@@ -410,7 +430,7 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
         </button>
         <strong className="study-reader-title" title={studyDocument.file_name}>{studyDocument.file_name}</strong>
 
-        <div className="study-reader-controls">
+        {!isImage && <div className="study-reader-controls">
           <button
             className="study-icon-button"
             type="button"
@@ -446,7 +466,7 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
             disabled={loading || !pageCount || page >= pageCount}
             onClick={() => goToPage(page + 1)}
           ><ChevronRight size={18} /></button>
-        </div>
+        </div>}
 
         {studyDocument.file_type === 'pdf' && (
           <>
@@ -476,12 +496,14 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
             <span className="study-search-status" aria-live="polite">
               {searching ? 'Searching…' : searchStatus}
             </span>
-            <div className="study-reader-zoom">
-              <button className="study-icon-button" type="button" aria-label="Zoom out" disabled={zoom <= 0.6} onClick={() => setZoom((value) => Math.max(0.6, value - 0.1))}><Minus size={16} /></button>
-              <span>{Math.round(zoom * 100)}%</span>
-              <button className="study-icon-button" type="button" aria-label="Zoom in" disabled={zoom >= 2.2} onClick={() => setZoom((value) => Math.min(2.2, value + 0.1))}><Plus size={16} /></button>
-            </div>
           </>
+        )}
+        {(studyDocument.file_type === 'pdf' || isImage) && (
+          <div className="study-reader-zoom">
+            <button className="study-icon-button" type="button" aria-label="Zoom out" disabled={zoom <= (isImage ? 0.25 : 0.6)} onClick={() => setZoom((value) => Math.max(isImage ? 0.25 : 0.6, value - 0.1))}><Minus size={16} /></button>
+            <span>{Math.round(zoom * 100)}%</span>
+            <button className="study-icon-button" type="button" aria-label="Zoom in" disabled={zoom >= (isImage ? 4 : 2.2)} onClick={() => setZoom((value) => Math.min(isImage ? 4 : 2.2, value + 0.1))}><Plus size={16} /></button>
+          </div>
         )}
 
         {downloadUrl && (
@@ -517,7 +539,29 @@ export default function StudyDocumentViewer({ document: studyDocument, onPageCha
           ))}
         </div>
       )}
-      {studyDocument.file_type !== 'pdf' && (
+      {isImage && (
+        <div className="study-image-stage" hidden={loading || Boolean(error)}>
+          {downloadUrl && (
+            <img
+              src={downloadUrl}
+              alt={studyDocument.title || studyDocument.file_name}
+              onLoad={(event) => {
+                setImageDimensions({
+                  width: event.currentTarget.naturalWidth,
+                  height: event.currentTarget.naturalHeight,
+                });
+              }}
+              style={{
+                width: imageDimensions
+                  ? `${imageDimensions.width * imageFitScale * zoom}px`
+                  : 'auto',
+              }}
+              onError={() => setError('This image could not be opened from local storage.')}
+            />
+          )}
+        </div>
+      )}
+      {studyDocument.file_type !== 'pdf' && !isImage && (
         <div className="study-document-stage study-reader-ppt" ref={stageRef} hidden={loading || Boolean(error)} />
       )}
     </section>
