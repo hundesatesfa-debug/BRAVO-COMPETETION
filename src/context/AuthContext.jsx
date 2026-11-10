@@ -115,7 +115,7 @@ async function loadAccount(user) {
     user,
     profile: {
       ...profile,
-      phone: profile.phone_number || profile.phone || user.phone || null,
+      phone: profile.phone || user.phone || null,
       school_name: profile.school_name || null,
       cbe_account_number: profile.cbe_account_number || null,
       has_verified_payment: hasVerifiedPayment,

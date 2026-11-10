@@ -11,6 +11,8 @@
 
 The script covers profiles, roles, academic levels, streams, competitions, competition registrations, study material metadata, study sessions, Bravo balances, streaks, and Bravo transactions. It creates missing tables and fields, repairs missing profile and student-role rows for existing Auth users, enables Row Level Security, refreshes the app's policies and triggers, and preserves existing rows. Material files stay in browser storage; the database stores metadata and session stats. Student writes to competition registrations remain disabled until payment verification is implemented.
 
+If the admin overview reports `Could not find the function public.admin_dashboard_metrics without parameters in the schema cache`, the RPC migration has not been applied to this Supabase project (or PostgREST has not refreshed its schema cache). After the competition, payment, payout, and audit tables exist, run the complete [`20261109120000_admin_dashboard_metrics_and_profile_phone.sql`](migrations/20261109120000_admin_dashboard_metrics_and_profile_phone.sql) migration in the same project's SQL Editor. The migration grants execution only to `authenticated`, checks administrator role inside the function, and requests a PostgREST schema reload. Confirm it completed successfully before reloading the application; do not run `PHASES_3_6_SETUP.sql` to resolve this error because that legacy setup script drops and recreates competition/payment tables.
+
 ## Important for an existing project
 
 `SETUP.sql` is designed for the BRAVO schema in this repository. It does not drop tables or delete user data, but it does update triggers, grants, and policies. Review those changes before running against a production branch.

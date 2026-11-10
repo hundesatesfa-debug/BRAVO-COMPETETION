@@ -39,7 +39,7 @@ export default function AdminResults({ payoutsOnly = false }) {
     setCompetitions(comps); setPayouts(payoutRows); setResults(resultRows); setCompetitionMap(Object.fromEntries(comps.map((row) => [row.id, row])));
     const ids = [...new Set([...payoutRows.map((row) => row.user_id), ...resultRows.map((row) => row.user_id)])];
     if (ids.length) {
-      const { data: profileRows } = await supabase.from('profiles').select('id, full_name, phone_number').in('id', ids);
+      const { data: profileRows } = await supabase.from('profiles').select('id, full_name, phone').in('id', ids);
       setProfiles(Object.fromEntries((profileRows || []).map((row) => [row.id, row])));
     } else setProfiles({});
     setLoading(false);
@@ -79,7 +79,7 @@ export default function AdminResults({ payoutsOnly = false }) {
     const rows = [['Student name', 'Phone', 'Competition', 'Rank', 'Reward ETB', 'Payout status', 'Payout transaction reference']];
     for (const payout of payouts) {
       const result = resultById[payout.result_id]; const profile = profiles[payout.user_id];
-      rows.push([profile?.full_name, profile?.phone_number, competitionMap[payout.competition_id]?.title, result?.rank_number, payout.amount_etb, payout.status, payout.transaction_reference]);
+      rows.push([profile?.full_name, profile?.phone, competitionMap[payout.competition_id]?.title, result?.rank_number, payout.amount_etb, payout.status, payout.transaction_reference]);
     }
     downloadCsv('bravo-winner-ledger.csv', rows);
   }

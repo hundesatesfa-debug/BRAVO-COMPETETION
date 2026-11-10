@@ -43,7 +43,7 @@ create table if not exists public.profiles (
   full_name text not null,
   academic_level text not null references public.academic_levels(id),
   stream text references public.streams(id),
-  phone_number text,
+  phone text,
   cbe_account_number text,
   school_name text,
   university text,
@@ -55,9 +55,37 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'profiles' and column_name = 'phone_number'
+  ) and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'profiles' and column_name = 'phone'
+  ) then
+    alter table public.profiles rename column phone_number to phone;
+  end if;
+
+  if exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.profiles'::regclass
+      and conname = 'profiles_phone_number_ethiopian_mobile_check'
+  ) and not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.profiles'::regclass
+      and conname = 'profiles_phone_ethiopian_mobile_check'
+  ) then
+    alter table public.profiles
+      rename constraint profiles_phone_number_ethiopian_mobile_check
+      to profiles_phone_ethiopian_mobile_check;
+  end if;
+end
+$$;
+
 -- Add fields used by the current app to an existing Bravo profiles table.
 alter table public.profiles
-  add column if not exists phone_number text,
+  add column if not exists phone text,
   add column if not exists cbe_account_number text,
   add column if not exists school_name text,
   add column if not exists university text,
@@ -75,9 +103,9 @@ begin
     alter table public.profiles add constraint profiles_full_name_length_check
       check (char_length(trim(full_name)) between 1 and 100) not valid;
   end if;
-  if not exists (select 1 from pg_constraint where conrelid = 'public.profiles'::regclass and conname = 'profiles_phone_number_ethiopian_mobile_check') then
-    alter table public.profiles add constraint profiles_phone_number_ethiopian_mobile_check
-      check (phone_number is null or phone_number ~ '^\+251[79][0-9]{8}$') not valid;
+  if not exists (select 1 from pg_constraint where conrelid = 'public.profiles'::regclass and conname = 'profiles_phone_ethiopian_mobile_check') then
+    alter table public.profiles add constraint profiles_phone_ethiopian_mobile_check
+      check (phone is null or phone ~ '^\+251[79][0-9]{8}$') not valid;
   end if;
   if not exists (select 1 from pg_constraint where conrelid = 'public.profiles'::regclass and conname = 'profiles_cbe_account_number_check') then
     alter table public.profiles add constraint profiles_cbe_account_number_check
@@ -203,7 +231,7 @@ begin
   end if;
 
   insert into public.profiles (
-    id, full_name, academic_level, stream, phone_number, cbe_account_number, school_name,
+    id, full_name, academic_level, stream, phone, cbe_account_number, school_name,
     university, department, academic_year, student_id
   )
   values (
@@ -268,7 +296,7 @@ for each row execute function public.handle_new_user();
 -- Repair accounts created before the profile trigger was installed. Invalid or
 -- missing optional registration values are left blank for these legacy rows.
 insert into public.profiles (
-  id, full_name, academic_level, stream, phone_number,
+  id, full_name, academic_level, stream, phone,
   cbe_account_number, school_name
 )
 select
@@ -397,7 +425,7 @@ grant select on public.academic_levels, public.streams to anon, authenticated;
 revoke all on public.profiles from public, anon, authenticated;
 grant select on public.profiles to authenticated;
 revoke update on public.profiles from authenticated;
-revoke update (id, full_name, academic_level, stream, phone_number, cbe_account_number, school_name, university, department, academic_year, student_id, avatar_url, created_at, updated_at)
+revoke update (id, full_name, academic_level, stream, phone, cbe_account_number, school_name, university, department, academic_year, student_id, avatar_url, created_at, updated_at)
   on public.profiles from authenticated;
 grant update (full_name, avatar_url) on public.profiles to authenticated;
 
@@ -416,6 +444,8 @@ revoke all on function public.set_updated_at() from public, anon, authenticated;
 revoke all on function public.handle_new_user() from public, anon, authenticated;
 
 commit;
+
+notify pgrst, 'reload schema';
 
 -- To promote a trusted admin, first create that person's account in the app,
 -- then run this as the Supabase project owner after replacing the email:

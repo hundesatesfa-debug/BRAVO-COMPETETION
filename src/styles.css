@@ -410,6 +410,8 @@ textarea.competition-input { min-height: 102px; resize: vertical; line-height: 1
   .app-sidebar > .brand { padding-left: 5px; }
   .sidebar-label { display: block; margin: 47px 0 12px 9px; color: #9888aa; font-size: 8px; font-weight: 700; letter-spacing: .16em; }
   .sidebar-nav { display: flex; flex-direction: column; gap: 5px; }
+  .admin-sidebar { overflow: hidden; }
+  .admin-sidebar .admin-sidebar-nav { min-height: 0; flex: 1 1 auto; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: thin; }
   .sidebar-item { position: relative; display: flex; min-height: 43px; align-items: center; gap: 10px; padding: 0 10px; border-radius: 9px; color: #b4a6c7; font-size: 11px; font-weight: 600; }
   .sidebar-item.active { color: #f0e7ff; background: rgba(177, 140, 255, .12); }
   .sidebar-item.active svg { color: var(--cyan); }
@@ -853,7 +855,9 @@ textarea.competition-input { min-height: 102px; resize: vertical; line-height: 1
   .app-sidebar > .brand { margin-right: auto; }
   .sidebar-label, .sidebar-help { display: none; }
   .sidebar-nav { display: flex; order: 3; width: 100%; gap: 5px; overflow-x: auto; padding-bottom: 1px; }
+  .admin-sidebar .admin-sidebar-nav { max-height: min(48vh, 340px); flex-direction: column; align-items: stretch; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: thin; }
   .sidebar-item { display: inline-flex; min-height: 35px; flex: 0 0 auto; align-items: center; gap: 6px; padding: 0 9px; border-radius: 8px; color: #536c7b; font-size: 9px; font-weight: 650; text-decoration: none; }
+  .admin-sidebar .admin-sidebar-nav .sidebar-item { display: flex; width: 100%; }
   .sidebar-item.active { color: #007b7c; background: #e6f8f7; }
   .sidebar-item.active svg { color: var(--cyan); }
   .nav-active-mark { display: none; }
