@@ -25,6 +25,10 @@ For Supabase Auth, allow `/welcome` and `/reset-password` as redirect destinatio
 
 Build the production bundle with `npm run build`.
 
+## Progressive Web App
+
+The production build includes an installable BR@VO web app and a service worker that precaches only the static app shell and build assets. Offline navigation falls back to the React app entry point; Supabase data, authentication, API responses, and user-specific content are not cached. Installability requires a secure context (HTTPS in production; localhost for development).
+
 ## Deploy on Vercel
 
 Import this repository into Vercel with the repository root as the project root. The included [`vercel.json`](vercel.json) builds with `npm run build`, publishes `dist`, and routes app URLs back to the React app.

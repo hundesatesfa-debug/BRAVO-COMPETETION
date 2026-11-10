@@ -14,18 +14,3 @@ createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </React.StrictMode>,
 );
-
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    if (!navigator.serviceWorker.controller) {
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (sessionStorage.getItem('bravo-sw-controlled')) return;
-        sessionStorage.setItem('bravo-sw-controlled', '1');
-        window.location.reload();
-      }, { once: true });
-    }
-    navigator.serviceWorker.register('/sw.js').then((registration) => {
-      registration.update().catch(() => {});
-    }).catch(() => {});
-  });
-}

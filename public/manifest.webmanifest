@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "BRAVO Academy",
-  "short_name": "BRAVO",
+  "name": "BR@VO",
+  "short_name": "BR@VO",
   "description": "Study with purpose. Compete with clarity.",
   "start_url": "/dashboard",
   "scope": "/",
@@ -13,7 +13,7 @@
       "src": "/icons/bravo-mark.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }
