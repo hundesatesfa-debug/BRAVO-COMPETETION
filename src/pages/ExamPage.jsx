@@ -32,7 +32,10 @@ export default function ExamPage() {
     setLoading(true); setError('');
     const { data, error: loadError } = await supabase.rpc('get_student_exam_feed');
     if (loadError) setError(loadError.message);
-    setExams(Array.isArray(data) ? data : []);
+    const examRows = Array.isArray(data) ? data
+      : Array.isArray(data?.examinations) ? data.examinations
+        : Array.isArray(data?.exams) ? data.exams : [];
+    setExams(examRows);
     setLoading(false);
   }, []);
 
