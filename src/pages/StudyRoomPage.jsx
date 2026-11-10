@@ -575,8 +575,8 @@ export default function StudyRoomPage() {
       ) : (
         <div className="study-empty-state">
           <span className="study-empty-icon"><FolderOpen size={22} /></span>
-          <h3>{search ? 'No matching materials' : 'Your study shelf is ready'}</h3>
-          <p>{search ? 'Try another title or file type.' : 'Add a lecture PDF or presentation. It will be stored in your browser so you can keep studying offline.'}</p>
+          <h3>{search || typeFilter !== 'all' ? 'No matching materials' : 'Your study shelf is ready'}</h3>
+          <p>{search || typeFilter !== 'all' ? 'Try another title or file type.' : 'Add a lecture document or image. It will be stored in your browser so you can keep studying offline.'}</p>
         </div>
       )}
 

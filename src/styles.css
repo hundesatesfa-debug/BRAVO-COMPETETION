@@ -1141,6 +1141,7 @@ body { background: var(--bg); color: var(--text); }
 .wallet-reward-progress span { background: var(--cyan); }
 .wallet-transaction-row > b { color: #52d6a5; }
 .study-info-banner, .wallet-notice { border-color: var(--line-bright); color: #9ce5df; background: rgba(0, 210, 190, .07); }
+.study-storage-warning { border-color: rgba(255, 199, 58, .24); color: #f0d48a; background: rgba(255, 199, 58, .07); }
 .study-message { border-color: var(--line-bright); color: #9ce5df; background: rgba(0, 210, 190, .07); }
 .study-message-error { border-color: rgba(244, 63, 94, .25); color: #ffb8c2; background: rgba(244, 63, 94, .08); }
 

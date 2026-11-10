@@ -51,7 +51,14 @@ function openDatabase() {
         }
       };
 
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        const database = request.result;
+        database.onversionchange = () => {
+          database.close();
+          databasePromise = undefined;
+        };
+        resolve(database);
+      };
       request.onerror = () => reject(request.error || new Error('Could not open local study storage.'));
       request.onblocked = () => reject(new Error('Close other BRAVO tabs to update local study storage.'));
     }).catch((error) => {
