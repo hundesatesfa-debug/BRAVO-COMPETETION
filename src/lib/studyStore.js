@@ -198,7 +198,10 @@ export async function saveStudyDocument(file, userId, options = {}) {
   const fileName = file.name || 'Untitled material';
   const extension = fileName.split('.').pop()?.toLowerCase();
   const normalizedExtension = extension === 'jpeg' ? 'jpg' : extension;
-  const mimeType = String(file.type || '').toLowerCase();
+  const declaredMimeType = String(file.type || '').toLowerCase();
+  const mimeType = ['application/octet-stream', 'binary/octet-stream'].includes(declaredMimeType)
+    ? ''
+    : declaredMimeType;
   const mimeExtension = Object.keys(SUPPORTED_FILE_TYPES).find((type) => SUPPORTED_FILE_TYPES[type] === mimeType);
   const fileType = ['pdf', 'ppt', 'pptx', 'jpg', 'png', 'webp'].includes(normalizedExtension)
     ? normalizedExtension
@@ -227,10 +230,11 @@ export async function saveStudyDocument(file, userId, options = {}) {
     ? `${userId}:course:${sourceMaterialId}`
     : `${userId}:personal:${fileName.toLocaleLowerCase()}:${file.size}:${file.lastModified || 0}:${fileType}`;
   const fileStem = fileName.replace(/\.[^.]+$/, '');
+  const title = String(options.title || '').trim() || fileStem || fileName;
   const record = {
     id: randomId(),
     owner_id: userId,
-    title: String(options.title || fileStem || fileName).trim().slice(0, 160),
+    title: title.slice(0, 160),
     file_name: fileName,
     original_filename: fileName,
     file_type: fileType,

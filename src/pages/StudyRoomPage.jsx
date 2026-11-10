@@ -453,7 +453,7 @@ export default function StudyRoomPage() {
         <span className="study-drop-icon"><Upload size={20} /></span>
         <div>
           <strong>{savingFile ? 'Saving on this device…' : 'Add lecture materials'}</strong>
-          <p>Choose or drop PDF, PPT, PPTX, JPG, PNG, or WEBP files (up to 50 MB each). File contents stay on this device.</p>
+          <p>Choose or drop PDF, PPT, PPTX, JPG, PNG, or WEBP files (50 MB or smaller). File contents stay on this device.</p>
         </div>
         <input
           className="study-category-input"
