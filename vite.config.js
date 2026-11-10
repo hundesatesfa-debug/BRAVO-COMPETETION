@@ -8,7 +8,12 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',
       injectRegister: 'script',
-      includeAssets: ['icons/bravo-mark.svg'],
+      includeAssets: [
+        'icons/bravo-mark.svg',
+        'icons/bravo-192.png',
+        'icons/bravo-512.png',
+        'icons/bravo-maskable-512.png',
+      ],
       manifest: {
         id: '/',
         name: 'BR@VO',
@@ -21,10 +26,22 @@ export default defineConfig({
         theme_color: '#00A6A6',
         icons: [
           {
-            src: '/icons/bravo-mark.svg',
-            sizes: 'any',
-            type: 'image/svg+xml',
+            src: '/icons/bravo-192.png',
+            sizes: '192x192',
+            type: 'image/png',
             purpose: 'any',
+          },
+          {
+            src: '/icons/bravo-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any',
+          },
+          {
+            src: '/icons/bravo-maskable-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
           },
         ],
       },
