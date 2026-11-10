@@ -488,7 +488,7 @@ export default function StudyRoomPage() {
             const Icon = extension === 'pdf' ? FileText : extension ? Presentation : Download;
             return <article className="study-material-card official-material-card" key={material.id}>
               <div className={`study-material-icon ${extension === 'pdf' ? 'file-pdf' : extension ? 'file-pptx' : ''}`}><Icon size={18} /></div>
-              <div className="study-material-copy"><h4 title={material.title}>{material.title}</h4><span>{material.courses?.code || material.courses?.title || 'Course'} · {formatBytes(material.size_bytes)}</span><small>{material.description || 'Official BRAVO course material'}</small></div>
+              <div className="study-material-copy"><h4 title={material.title}>{material.title}</h4><span>{material.courses?.code || material.courses?.title || 'Course'} · {formatBytes(material.size_bytes)} · {offlineCourseCopies.has(material.id) ? 'Saved offline' : 'Online only'}</span><small>{material.description || 'Official BRAVO course material'}</small></div>
               <div className="study-material-actions">
                 {offlineCourseCopies.has(material.id) ? (
                   <>
