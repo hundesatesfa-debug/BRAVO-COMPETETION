@@ -3,6 +3,7 @@ import { Check, Clock3, CreditCard, FileCheck2, Link2, Trophy, UploadCloud, User
 import { Notice } from '../components/UI.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { supabase } from '../lib/supabase.js';
+import { normalizeCompetitionFeed } from '../lib/competitionFeed.js';
 
 const typeLabels = {
   weekly_arena: 'Weekly Micro-Arena',
@@ -61,7 +62,7 @@ export default function CompetitionPage() {
     ]);
     const firstError = feedResult.error || settingsResult.error || paymentsResult.error;
     if (firstError) setError(firstError.message || 'Competition information could not be loaded.');
-    setCompetitions(Array.isArray(feedResult.data) ? feedResult.data : []);
+    setCompetitions(normalizeCompetitionFeed(feedResult.data));
     setInstructions(Object.fromEntries((settingsResult.data || []).map((row) => [row.key, settingText(row.value)])));
     setPayments(Object.fromEntries((paymentsResult.data || []).map((row) => [row.registration_id, row])));
     setLoading(false);
@@ -163,7 +164,9 @@ export default function CompetitionPage() {
             const registrationStatus = competition.registration_status;
             const payment = payments[competition.registration_id];
             const open = competition.status === 'registration_open' && new Date(competition.registration_opens_at) <= new Date() && new Date(competition.registration_deadline) > new Date();
-            const full = competition.participant_limit != null && competition.reserved_count >= competition.participant_limit;
+            const full = competition.participant_limit != null
+              && competition.reserved_count != null
+              && Number(competition.reserved_count) >= Number(competition.participant_limit);
             const needsPayment = registrationStatus === 'awaiting_payment';
             return (
               <article className="competition-card" key={competition.id}>
@@ -175,7 +178,7 @@ export default function CompetitionPage() {
                 <p className="competition-description">{competition.description}</p>
                 <div className="competition-stats">
                   <div className="competition-stat"><span>Entry fee</span><strong>ETB {Number(competition.entry_fee_etb).toFixed(0)}</strong></div>
-                  <div className="competition-stat"><span>Verified participants</span><strong>{competition.eligible_count}{competition.participant_limit ? ` / ${competition.participant_limit}` : ''}</strong></div>
+                  {competition.eligible_count != null && <div className="competition-stat"><span>Verified participants</span><strong>{competition.eligible_count}{competition.participant_limit ? ` / ${competition.participant_limit}` : ''}</strong></div>}
                   <div className="competition-stat"><span>Reward pool share</span><strong>{competition.reward_share_pct}%</strong></div>
                 </div>
                 <div className="competition-dates">

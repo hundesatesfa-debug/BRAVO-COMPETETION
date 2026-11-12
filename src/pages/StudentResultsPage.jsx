@@ -3,6 +3,7 @@ import { Medal, Trophy, WalletCards } from 'lucide-react';
 import { Notice } from '../components/UI.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { supabase } from '../lib/supabase.js';
+import { normalizeCompetitionFeed } from '../lib/competitionFeed.js';
 
 function formatDate(value) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
@@ -23,7 +24,7 @@ export default function StudentResultsPage({ mode = 'leaderboard' }) {
     if (mode === 'leaderboard') {
       const { data, error: feedError } = await supabase.rpc('get_competition_feed');
       if (feedError) setError(feedError.message);
-      const rows = (Array.isArray(data) ? data : []).filter((row) => ['completed', 'archived'].includes(row.status));
+      const rows = normalizeCompetitionFeed(data).filter((row) => ['completed', 'archived'].includes(row.status));
       setCompetitions(rows);
       setSelectedId((current) => rows.some((row) => row.id === current) ? current : rows[0]?.id || '');
     } else {
@@ -35,7 +36,8 @@ export default function StudentResultsPage({ mode = 'leaderboard' }) {
       setResults(resultData.data || []);
       setPayouts(payoutData.data || []);
       const feed = await supabase.rpc('get_competition_feed');
-      setCompetitions(Array.isArray(feed.data) ? feed.data : []);
+      if (feed.error) setError(feed.error.message);
+      setCompetitions(normalizeCompetitionFeed(feed.data));
     }
     setLoading(false);
   }, [mode, account.user.id]);
