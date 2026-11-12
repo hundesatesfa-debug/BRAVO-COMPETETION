@@ -45,13 +45,27 @@ export default function AdminAcademics() {
 
   async function saveCourse(event) {
     event.preventDefault(); setBusy('course'); setError(''); setSuccess('');
+    const code = courseForm.code.trim().toUpperCase();
+    if (courses.some((course) => course.code === code)) {
+      setError(`Course code "${code}" already exists. Select that course or use a different code.`);
+      setBusy('');
+      return;
+    }
+
     const { error: saveError } = await supabase.from('courses').insert({
       ...courseForm,
+      code,
       academic_level: courseForm.academic_level ? Number(courseForm.academic_level) : null,
       stream: courseForm.stream ? Number(courseForm.stream) : null,
       created_by: account.user.id,
     });
-    if (saveError) setError(saveError.message); else { setCourseForm({ code: '', title: '', academic_level: '', stream: '' }); setSuccess('Course added.'); await load(); }
+    if (saveError) {
+      setError(
+        saveError.code === '23505' && saveError.message.includes('courses_code_key')
+          ? `Course code "${code}" already exists. Select that course or use a different code.`
+          : saveError.message
+      );
+    } else { setCourseForm({ code: '', title: '', academic_level: '', stream: '' }); setSuccess('Course added.'); await load(); }
     setBusy('');
   }
 
