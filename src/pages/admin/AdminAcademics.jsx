@@ -10,6 +10,8 @@ const blankQuestion = { id: '', course_id: '', topic_id: '', prompt: '', choices
 export default function AdminAcademics() {
   const { account } = useAuth();
   const [courses, setCourses] = useState([]);
+  const [academicLevels, setAcademicLevels] = useState([]);
+  const [streams, setStreams] = useState([]);
   const [topics, setTopics] = useState([]);
   const [questions, setQuestions] = useState([]);
   const [materials, setMaterials] = useState([]);
@@ -25,22 +27,30 @@ export default function AdminAcademics() {
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
-    const [courseResult, topicResult, questionResult, materialResult] = await Promise.all([
+    const [courseResult, levelResult, streamResult, topicResult, questionResult, materialResult] = await Promise.all([
       supabase.from('courses').select('*').order('title'),
+      supabase.from('academic_levels').select('id, name').order('id'),
+      supabase.from('streams').select('id, name').order('id'),
       supabase.from('academic_topics').select('*').order('week_number').order('title'),
       supabase.from('question_bank').select('*').order('created_at', { ascending: false }).limit(500),
       supabase.from('academic_materials').select('*').order('created_at', { ascending: false }).limit(300),
     ]);
-    const firstError = courseResult.error || topicResult.error || questionResult.error || materialResult.error;
+    const firstError = courseResult.error || levelResult.error || streamResult.error || topicResult.error || questionResult.error || materialResult.error;
     if (firstError) setError(firstError.message);
     setCourses(courseResult.data || []); setTopics(topicResult.data || []); setQuestions(questionResult.data || []); setMaterials(materialResult.data || []);
+    setAcademicLevels(levelResult.data || []); setStreams(streamResult.data || []);
     setLoading(false);
   }, []);
   useEffect(() => { load(); }, [load]);
 
   async function saveCourse(event) {
     event.preventDefault(); setBusy('course'); setError(''); setSuccess('');
-    const { error: saveError } = await supabase.from('courses').insert({ ...courseForm, academic_level: courseForm.academic_level || null, stream: courseForm.stream || null, created_by: account.user.id });
+    const { error: saveError } = await supabase.from('courses').insert({
+      ...courseForm,
+      academic_level: courseForm.academic_level ? Number(courseForm.academic_level) : null,
+      stream: courseForm.stream ? Number(courseForm.stream) : null,
+      created_by: account.user.id,
+    });
     if (saveError) setError(saveError.message); else { setCourseForm({ code: '', title: '', academic_level: '', stream: '' }); setSuccess('Course added.'); await load(); }
     setBusy('');
   }
@@ -154,8 +164,8 @@ export default function AdminAcademics() {
       <form className="admin-panel admin-form" onSubmit={saveCourse}><div className="admin-panel-title"><div><div className="eyebrow">ACADEMIC CATALOG</div><h2>Add a course</h2></div><BookOpen size={18} /></div>
         <label className="field-label">Course code<input className="competition-input" value={courseForm.code} required maxLength={24} onChange={(event) => setCourseForm({ ...courseForm, code: event.target.value.toUpperCase() })} placeholder="BIO101" /></label>
         <label className="field-label">Course name<input className="competition-input" value={courseForm.title} required maxLength={120} onChange={(event) => setCourseForm({ ...courseForm, title: event.target.value })} /></label>
-        <label className="field-label">Academic level<select className="competition-input" value={courseForm.academic_level} onChange={(event) => setCourseForm({ ...courseForm, academic_level: event.target.value })}><option value="">All levels</option><option value="grade_12">Grade 12</option><option value="freshman">Freshman</option></select></label>
-        <label className="field-label">Stream<select className="competition-input" value={courseForm.stream} onChange={(event) => setCourseForm({ ...courseForm, stream: event.target.value })}><option value="">All streams</option><option value="natural_science">Natural Science</option><option value="social_science">Social Science</option></select></label>
+        <label className="field-label">Academic level<select className="competition-input" value={courseForm.academic_level} onChange={(event) => setCourseForm({ ...courseForm, academic_level: event.target.value })}><option value="">All levels</option>{academicLevels.map((level) => <option key={level.id} value={level.id}>{level.name}</option>)}</select></label>
+        <label className="field-label">Stream<select className="competition-input" value={courseForm.stream} onChange={(event) => setCourseForm({ ...courseForm, stream: event.target.value })}><option value="">All streams</option>{streams.map((stream) => <option key={stream.id} value={stream.id}>{stream.name}</option>)}</select></label>
         <button className="button button-primary" disabled={busy === 'course'}><Plus size={15} /> Add course</button>
       </form>
       <form className="admin-panel admin-form" onSubmit={saveTopic}><div className="admin-panel-title"><div><div className="eyebrow">TOPIC GROUPING</div><h2>Add a topic</h2></div></div>
