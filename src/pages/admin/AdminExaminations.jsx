@@ -1,6 +1,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { CalendarClock, Save, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Notice } from '../../components/UI.jsx';
 import { supabase } from '../../lib/supabase.js';
 
@@ -256,6 +257,14 @@ export default function AdminExaminations({ monitoring = false }) {
     setBusy('');
   }
 
+  const competitionType =
+    form.exam_type === 'weekly_arena' ? 'weekly_arena' : 'grand_milestone';
+  const eligibleCompetitions = competitions.filter(
+    (row) =>
+      row.competition_type === competitionType &&
+      !['completed', 'cancelled', 'archived'].includes(row.status)
+  );
+
   if (monitoring) {
     return (
       <section className="admin-section">
@@ -385,33 +394,42 @@ export default function AdminExaminations({ monitoring = false }) {
                 const selected = competitions.find(
                   (row) => row.id === event.target.value
                 );
+                const examType =
+                  selected?.competition_type === 'grand_milestone'
+                    ? 'grand_final'
+                    : 'weekly_arena';
 
-                setForm({
-                  ...form,
+                setForm((current) => ({
+                  ...current,
                   competition_id: event.target.value,
-                  exam_type:
-                    selected?.competition_type === 'grand_milestone'
-                      ? 'grand_final'
-                      : 'weekly_arena',
-                });
+                  exam_type: examType,
+                }));
               }}
             >
               <option value="">Select competition</option>
-              {competitions
-                .filter(
-                  (row) =>
-                    !['completed', 'cancelled', 'archived'].includes(row.status)
-                )
-                .map((row) => (
-                  <option key={row.id} value={row.id}>
-                    {row.title} ·{' '}
-                    {row.competition_type === 'weekly_arena'
-                      ? 'Weekly Arena'
-                      : 'Grand'}
-                  </option>
-                ))}
+              {eligibleCompetitions.map((row) => (
+                <option key={row.id} value={row.id}>
+                  {row.title} ·{' '}
+                  {row.competition_type === 'weekly_arena'
+                    ? 'Weekly Arena'
+                    : 'Grand Milestone'}
+                </option>
+              ))}
             </select>
           </label>
+          {eligibleCompetitions.length === 0 && (
+            <p className="field-hint admin-span-2">
+              No{' '}
+              {competitionType === 'weekly_arena'
+                ? 'Weekly Arena'
+                : 'Grand Milestone'}{' '}
+              competition is available.{' '}
+              <Link to="/admin/competitions">
+                Create one in Competition management
+              </Link>{' '}
+              first.
+            </p>
+          )}
 
           <label className="field-label">
             Course
@@ -437,9 +455,26 @@ export default function AdminExaminations({ monitoring = false }) {
             <select
               className="competition-input"
               value={form.exam_type}
-              onChange={(event) =>
-                setForm({ ...form, exam_type: event.target.value })
-              }
+              onChange={(event) => {
+                const examType = event.target.value;
+                setForm((current) => {
+                  const competition = competitions.find(
+                    (row) => row.id === current.competition_id
+                  );
+                  const expectedCompetitionType =
+                    examType === 'weekly_arena'
+                      ? 'weekly_arena'
+                      : 'grand_milestone';
+                  const compatible =
+                    competition?.competition_type === expectedCompetitionType;
+
+                  return {
+                    ...current,
+                    exam_type: examType,
+                    competition_id: compatible ? current.competition_id : '',
+                  };
+                });
+              }}
             >
               <option value="weekly_arena">Weekly Arena exam</option>
               <option value="grand_weekly">
@@ -581,7 +616,7 @@ export default function AdminExaminations({ monitoring = false }) {
           <button
             className="button button-primary"
             disabled={
-              busy === 'save' || !courses.length || !competitions.length
+              busy === 'save' || !courses.length || !eligibleCompetitions.length
             }
           >
             <Save size={15} />
