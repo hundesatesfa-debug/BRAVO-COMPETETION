@@ -143,6 +143,8 @@ export default function AdminExaminations({ monitoring = false }) {
       reconnect_grace_seconds: String(row.reconnect_grace_seconds),
       allow_previous_navigation: row.allow_previous_navigation,
     });
+    setError('');
+    setSuccess('');
   }
 
   async function save(event) {
@@ -194,6 +196,12 @@ export default function AdminExaminations({ monitoring = false }) {
       return;
     }
 
+    if (conflictingExam) {
+      setError('An exam already exists for this competition and exam type.');
+      setBusy('');
+      return;
+    }
+
     const payload = {
       ...form,
       course_id: selectedCourse.id,
@@ -223,7 +231,12 @@ export default function AdminExaminations({ monitoring = false }) {
 
     console.log('EXAMINATION SAVE RESULT:', { data, error: saveError });
 
-    if (saveError) {
+    if (saveError?.code === '23505') {
+      await load();
+      setError(
+        'An exam already exists for this competition and exam type. Review the existing exam below; edit it if it is still a draft.'
+      );
+    } else if (saveError) {
       setError(saveError.message);
     } else {
       setSuccess('Examination saved as a draft.');
@@ -264,6 +277,21 @@ export default function AdminExaminations({ monitoring = false }) {
       row.competition_type === competitionType &&
       !['completed', 'cancelled', 'archived'].includes(row.status)
   );
+  const conflictingExam = exams.find(
+    (row) =>
+      row.id !== form.id &&
+      row.competition_id === form.competition_id &&
+      row.exam_type === form.exam_type &&
+      (form.exam_type !== 'grand_weekly' ||
+        row.week_number === Number(form.week_number))
+  );
+  const conflictingExamLabel = conflictingExam
+    ? conflictingExam.exam_type === 'grand_final'
+      ? 'Grand Competition final'
+      : conflictingExam.exam_type === 'grand_weekly'
+        ? `Grand Competition week ${conflictingExam.week_number}`
+        : 'Weekly Arena exam'
+    : '';
 
   if (monitoring) {
     return (
@@ -484,6 +512,24 @@ export default function AdminExaminations({ monitoring = false }) {
             </select>
           </label>
 
+          {conflictingExam && (
+            <div className="field-hint admin-span-2">
+              {conflictingExamLabel} already exists for this competition
+              {' '}(status: {conflictingExam.status}).{' '}
+              {conflictingExam.status === 'draft' ? (
+                <button
+                  className="button button-outline button-compact"
+                  type="button"
+                  onClick={() => edit(conflictingExam)}
+                >
+                  Edit existing draft
+                </button>
+              ) : (
+                ' Only a draft can be edited; duplicate exams are not allowed.'
+              )}
+            </div>
+          )}
+
           {form.exam_type === 'grand_weekly' && (
             <label className="field-label">
               Competition week
@@ -616,7 +662,10 @@ export default function AdminExaminations({ monitoring = false }) {
           <button
             className="button button-primary"
             disabled={
-              busy === 'save' || !courses.length || !eligibleCompetitions.length
+              busy === 'save' ||
+              !courses.length ||
+              !eligibleCompetitions.length ||
+              Boolean(conflictingExam)
             }
           >
             <Save size={15} />
