@@ -1,11 +1,110 @@
 import { useCallback, useEffect, useState } from 'react';
-import { BookOpen, FilePlus2, FileText, Plus, Presentation, Save, Trash2, Upload, X } from 'lucide-react';
+import { BookOpen, Check, Eye, FilePlus2, FileText, Plus, Presentation, Save, Search, Trash2, Upload, X } from 'lucide-react';
 import { Notice } from '../../components/UI.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { supabase } from '../../lib/supabase.js';
 
 const choiceIds = ['a', 'b', 'c', 'd'];
+const difficultyOptions = [
+  { value: 'introductory', label: 'Introductory' },
+  { value: 'standard', label: 'Standard' },
+  { value: 'advanced', label: 'Advanced' },
+];
+const importFields = new Set(['prompt', 'choices', 'correct_choice_id', 'explanation', 'difficulty', 'topic_id']);
 const blankQuestion = { id: '', course_id: '', topic_id: '', prompt: '', choices: ['', '', '', ''], correct_choice_id: 'a', explanation: '', difficulty: 'standard', active: true };
+
+function validateImportedQuestion(row, index, courseId, defaultTopicId, topics) {
+  const errors = [];
+  if (!row || typeof row !== 'object' || Array.isArray(row)) {
+    return { index, errors: ['Each item must be a question object.'], question: null };
+  }
+
+  Object.keys(row).filter((key) => !importFields.has(key)).forEach((key) => {
+    errors.push(`Unsupported field "${key}".`);
+  });
+
+  const prompt = typeof row.prompt === 'string' ? row.prompt.trim() : '';
+  if (prompt.length < 5 || prompt.length > 3000) {
+    errors.push('Question text must be 5 to 3,000 characters.');
+  }
+
+  const choicesById = {};
+  const seenChoiceIds = new Set();
+  if (!Array.isArray(row.choices) || row.choices.length !== 4) {
+    errors.push('Choices must be an array containing exactly four options.');
+  } else {
+    row.choices.forEach((choice, choiceIndex) => {
+      if (!choice || typeof choice !== 'object' || Array.isArray(choice)) {
+        errors.push(`Choice ${choiceIndex + 1} must be an object with id and text.`);
+        return;
+      }
+
+      if (!choiceIds.includes(choice.id)) {
+        errors.push(`Choice ${choiceIndex + 1} must use an id from a, b, c, or d.`);
+      } else if (seenChoiceIds.has(choice.id)) {
+        errors.push(`Choice id "${choice.id}" is repeated.`);
+      } else {
+        seenChoiceIds.add(choice.id);
+      }
+
+      if (typeof choice.text !== 'string' || !choice.text.trim()) {
+        errors.push(`Choice ${choiceIndex + 1} needs non-empty text.`);
+      } else if (choice.text.trim().length > 500) {
+        errors.push(`Choice ${choiceIndex + 1} must be 500 characters or fewer.`);
+      } else if (choiceIds.includes(choice.id)) {
+        choicesById[choice.id] = choice.text.trim();
+      }
+    });
+
+    if (seenChoiceIds.size !== choiceIds.length) {
+      errors.push('Include each choice id a, b, c, and d exactly once.');
+    }
+  }
+
+  if (!choiceIds.includes(row.correct_choice_id)) {
+    errors.push('Correct choice must be one of a, b, c, or d.');
+  } else if (!seenChoiceIds.has(row.correct_choice_id)) {
+    errors.push('Correct choice must match one of the four supplied choices.');
+  }
+
+  const difficulty = Object.prototype.hasOwnProperty.call(row, 'difficulty') ? row.difficulty : 'standard';
+  if (!difficultyOptions.some((option) => option.value === difficulty)) {
+    errors.push('Difficulty must be introductory, standard, or advanced.');
+  }
+
+  let explanation = null;
+  if (Object.prototype.hasOwnProperty.call(row, 'explanation') && row.explanation !== null) {
+    if (typeof row.explanation !== 'string') {
+      errors.push('Explanation must be text or null.');
+    } else if (row.explanation.trim().length > 2000) {
+      errors.push('Explanation must be 2,000 characters or fewer.');
+    } else {
+      explanation = row.explanation.trim() || null;
+    }
+  }
+
+  let topicId = defaultTopicId || null;
+  if (Object.prototype.hasOwnProperty.call(row, 'topic_id') && row.topic_id !== null) {
+    if (typeof row.topic_id !== 'string') {
+      errors.push('Topic id must be text or null.');
+    } else if (row.topic_id.trim()) {
+      topicId = row.topic_id.trim();
+      if (!topics.some((topic) => topic.id === topicId && topic.course_id === courseId)) {
+        errors.push('Topic id must belong to the selected course.');
+      }
+    }
+  }
+
+  const question = errors.length ? null : {
+    topic_id: topicId,
+    prompt,
+    choices: choiceIds.map((id) => ({ id, text: choicesById[id] })),
+    correct_choice_id: row.correct_choice_id,
+    explanation,
+    difficulty,
+  };
+  return { index, errors, question };
+}
 
 export default function AdminAcademics() {
   const { account } = useAuth();
@@ -20,6 +119,12 @@ export default function AdminAcademics() {
   const [materialForm, setMaterialForm] = useState({ course_id: '', title: '', description: '', file: null });
   const [question, setQuestion] = useState(blankQuestion);
   const [bulkJson, setBulkJson] = useState('');
+  const [importCourseId, setImportCourseId] = useState('');
+  const [importTopicId, setImportTopicId] = useState('');
+  const [importPreview, setImportPreview] = useState(null);
+  const [importError, setImportError] = useState('');
+  const [questionFilters, setQuestionFilters] = useState({ search: '', courseId: '', topicId: '', difficulty: 'all', status: 'all' });
+  const [previewQuestionId, setPreviewQuestionId] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -130,47 +235,106 @@ export default function AdminAcademics() {
 
   async function saveQuestion(event) {
     event.preventDefault(); setBusy('question'); setError(''); setSuccess('');
+    const trimmedChoices = question.choices.map((choice) => choice.trim());
+    if (!question.course_id || question.prompt.trim().length < 5 || question.prompt.trim().length > 3000
+      || trimmedChoices.some((choice) => !choice || choice.length > 500)
+      || !choiceIds.includes(question.correct_choice_id)
+      || !difficultyOptions.some((option) => option.value === question.difficulty)) {
+      setError('Enter a valid course, question, four non-empty choices, correct answer, and difficulty.');
+      setBusy('');
+      return;
+    }
+
     const payload = { course_id: question.course_id, topic_id: question.topic_id || null, prompt: question.prompt.trim(),
-      choices: choiceIds.map((id, index) => ({ id, text: question.choices[index].trim() })),
+      choices: choiceIds.map((id, index) => ({ id, text: trimmedChoices[index] })),
       correct_choice_id: question.correct_choice_id, explanation: question.explanation.trim() || null,
       difficulty: question.difficulty, active: question.active, created_by: account.user.id };
     let result = question.id ? await supabase.from('question_bank').update(payload).eq('id', question.id) : await supabase.from('question_bank').insert(payload);
-    if (result.error) setError(result.error.message); else { setQuestion({ ...blankQuestion }); setSuccess(question.id ? 'Question updated.' : 'Question added.'); await load(); }
+    if (result.error) setError(result.error.message); else { setQuestion({ ...blankQuestion }); setPreviewQuestionId(''); setSuccess(question.id ? 'Question updated.' : 'Question added.'); await load(); }
+    setBusy('');
+  }
+
+  async function setQuestionActive(row, active) {
+    setBusy(row.id); setError(''); setSuccess('');
+    const { error: updateError } = await supabase.from('question_bank').update({ active }).eq('id', row.id);
+    if (updateError) setError(updateError.message);
+    else { setSuccess(active ? 'Question activated.' : 'Question deactivated.'); await load(); }
     setBusy('');
   }
 
   async function deleteQuestion(row) {
     setBusy(row.id); setError(''); setSuccess('');
     const { error: deleteError } = await supabase.from('question_bank').delete().eq('id', row.id);
-    if (deleteError) setError(deleteError.message); else { setSuccess('Question deleted.'); await load(); }
+    if (deleteError) setError(deleteError.message); else { setPreviewQuestionId(''); setSuccess('Question deleted.'); await load(); }
     setBusy('');
   }
 
-  async function importQuestions(event) {
-    event.preventDefault(); setBusy('import'); setError(''); setSuccess('');
+  function prepareImport(event) {
+    event.preventDefault(); setError(''); setSuccess(''); setImportError(''); setImportPreview(null);
+    if (!importCourseId) { setImportError('Choose a course for this import.'); return; }
+
+    let parsed;
     try {
-      const parsed = JSON.parse(bulkJson);
-      if (!Array.isArray(parsed) || parsed.length < 1 || parsed.length > 100) throw new Error('Import a JSON array containing 1 to 100 questions.');
-      const records = parsed.map((row) => ({
-        course_id: question.course_id,
-        topic_id: row.topic_id || question.topic_id || null,
-        prompt: row.prompt,
-        choices: row.choices,
-        correct_choice_id: row.correct_choice_id,
-        explanation: row.explanation || null,
-        difficulty: row.difficulty || 'standard',
-        active: true,
-        created_by: account.user.id,
-      }));
-      if (!question.course_id) throw new Error('Choose the course used for this import.');
-      const { error: importError } = await supabase.from('question_bank').insert(records);
-      if (importError) throw importError;
-      setBulkJson(''); setSuccess(`${records.length} questions imported.`); await load();
-    } catch (importError) { setError(importError.message || 'The question import could not be read.'); }
+      parsed = JSON.parse(bulkJson);
+    } catch {
+      setImportError('The input is not valid JSON. Check the formatting and try again.');
+      return;
+    }
+    if (!Array.isArray(parsed) || parsed.length < 1 || parsed.length > 100) {
+      setImportError('Import must be a JSON array containing 1 to 100 questions.');
+      return;
+    }
+
+    const rows = parsed.map((row, index) => validateImportedQuestion(row, index + 1, importCourseId, importTopicId, topics));
+    setImportPreview(rows);
+    const invalidCount = rows.filter((row) => row.errors.length).length;
+    setImportError(invalidCount
+      ? `${invalidCount} question${invalidCount === 1 ? '' : 's'} need correction. Nothing will be imported until every row is valid.`
+      : `${rows.length} questions passed validation. Review the preview before importing.`);
+  }
+
+  async function importQuestions() {
+    if (!importPreview?.length || importPreview.some((row) => row.errors.length) || !importCourseId) return;
+    setBusy('import'); setError(''); setSuccess(''); setImportError('');
+    const records = importPreview.map(({ question: row }) => ({
+      course_id: importCourseId,
+      topic_id: row.topic_id,
+      prompt: row.prompt,
+      choices: row.choices,
+      correct_choice_id: row.correct_choice_id,
+      explanation: row.explanation,
+      difficulty: row.difficulty,
+      active: true,
+      created_by: account.user.id,
+    }));
+    const { error: saveError } = await supabase.from('question_bank').insert(records);
+    if (saveError) {
+      setError(saveError.message);
+    } else {
+      setBulkJson(''); setImportPreview(null); setImportCourseId(''); setImportTopicId('');
+      setSuccess(`${records.length} questions imported.`); await load();
+    }
     setBusy('');
   }
 
   const scopedTopics = topics.filter((topic) => topic.course_id === question.course_id);
+  const importTopics = topics.filter((topic) => topic.course_id === importCourseId);
+  const previewQuestion = questions.find((row) => row.id === previewQuestionId);
+  const searchTerm = questionFilters.search.trim().toLowerCase();
+  const filteredQuestions = questions.filter((row) => {
+    const course = courses.find((item) => item.id === row.course_id);
+    const topic = topics.find((item) => item.id === row.topic_id);
+    const searchableText = [row.prompt, course?.code, course?.title, topic?.title].filter(Boolean).join(' ').toLowerCase();
+    return (!searchTerm || searchableText.includes(searchTerm))
+      && (!questionFilters.courseId || row.course_id === questionFilters.courseId)
+      && (!questionFilters.topicId || row.topic_id === questionFilters.topicId)
+      && (questionFilters.difficulty === 'all' || row.difficulty === questionFilters.difficulty)
+      && (questionFilters.status === 'all' || (questionFilters.status === 'active' ? row.active : !row.active));
+  });
+  const invalidImportCount = importPreview?.filter((row) => row.errors.length).length || 0;
+  const importTopicOptions = questionFilters.courseId
+    ? topics.filter((topic) => topic.course_id === questionFilters.courseId)
+    : topics;
   return <section className="admin-section">
     <div className="dashboard-section-heading"><div><div className="eyebrow">EXAM CONTENT</div><h1>Courses & question bank</h1></div><span className="section-note">Question keys remain admin-only.</span></div>
     {error && <Notice>{error}</Notice>}{success && <Notice tone="success">{success}</Notice>}
@@ -218,17 +382,60 @@ export default function AdminAcademics() {
         <label className="field-label">Difficulty<select className="competition-input" value={question.difficulty} onChange={(event) => setQuestion({ ...question, difficulty: event.target.value })}><option value="introductory">Introductory</option><option value="standard">Standard</option><option value="advanced">Advanced</option></select></label>
         <label className="field-label">Explanation (optional)<input className="competition-input" value={question.explanation} maxLength={2000} onChange={(event) => setQuestion({ ...question, explanation: event.target.value })} /></label>
       </div>
+      <label className="question-active-toggle"><input type="checkbox" checked={question.active} onChange={(event) => setQuestion({ ...question, active: event.target.checked })} /><span><strong>Active</strong><small>Active questions can be selected for exams.</small></span></label>
       <div className="admin-form-actions"><button className="button button-primary" disabled={busy === 'question'}><Save size={15} /> {busy === 'question' ? 'Saving…' : question.id ? 'Save question' : 'Add question'}</button></div>
     </form>
 
-    <form className="admin-panel admin-form" onSubmit={importQuestions}><div className="admin-panel-title"><div><div className="eyebrow">BULK IMPORT</div><h2>Import question JSON</h2></div><FilePlus2 size={18} /></div>
-      <p className="empty-copy">Choose a course above, then paste a JSON array with prompt, choices [{`{id,text}`}], correct_choice_id, and optional explanation/difficulty.</p>
-      <textarea className="competition-input admin-code-input" rows="7" value={bulkJson} onChange={(event) => setBulkJson(event.target.value)} placeholder={'[{"prompt":"...","choices":[{"id":"a","text":"..."},{"id":"b","text":"..."},{"id":"c","text":"..."},{"id":"d","text":"..."}],"correct_choice_id":"a"}]'} />
-      <button className="button button-outline" disabled={busy === 'import' || !question.course_id}><FilePlus2 size={15} /> {busy === 'import' ? 'Importing…' : 'Import questions'}</button>
+    <form className="admin-panel admin-form" onSubmit={prepareImport}><div className="admin-panel-title"><div><div className="eyebrow">BULK IMPORT</div><h2>Review questions before import</h2></div><FilePlus2 size={18} /></div>
+      <p className="empty-copy">Use the existing four-choice format. Each question needs prompt, four choices with ids a–d, and correct_choice_id. Explanation, difficulty, and topic_id are optional.</p>
+      <div className="admin-form-grid">
+        <label className="field-label">Course<select className="competition-input" required value={importCourseId} onChange={(event) => { setImportCourseId(event.target.value); setImportTopicId(''); setImportPreview(null); setImportError(''); }}><option value="">Choose course</option>{courses.map((course) => <option key={course.id} value={course.id}>{course.code} · {course.title}</option>)}</select></label>
+        <label className="field-label">Default topic (optional)<select className="competition-input" value={importTopicId} onChange={(event) => { setImportTopicId(event.target.value); setImportPreview(null); setImportError(''); }} disabled={!importCourseId}><option value="">No default topic</option>{importTopics.map((topic) => <option key={topic.id} value={topic.id}>{topic.title}</option>)}</select></label>
+      </div>
+      <label className="field-label">Question JSON<textarea className="competition-input admin-code-input" rows="7" value={bulkJson} onChange={(event) => { setBulkJson(event.target.value); setImportPreview(null); setImportError(''); }} placeholder={'[{"prompt":"...","choices":[{"id":"a","text":"..."},{"id":"b","text":"..."},{"id":"c","text":"..."},{"id":"d","text":"..."}],"correct_choice_id":"a"}]'} /></label>
+      {importError && <p className={`question-import-message${invalidImportCount ? ' question-import-message-error' : importPreview ? ' question-import-message-success' : ''}`} role="status">{importError}</p>}
+      {importPreview && <div className="question-import-preview">
+        <div className="admin-panel-title"><h3>Import preview ({importPreview.length})</h3><span>{invalidImportCount ? `${invalidImportCount} invalid` : 'All rows valid'}</span></div>
+        <div className="question-import-list">{importPreview.map((row) => <article className={`question-import-row${row.errors.length ? ' is-invalid' : ''}`} key={row.index}>
+          <div className="question-import-row-heading"><strong>Question {row.index}</strong><span>{row.errors.length ? 'Needs correction' : difficultyOptions.find((option) => option.value === row.question.difficulty)?.label}</span></div>
+          {row.errors.length ? <ul className="question-import-errors">{row.errors.map((message) => <li key={message}>{message}</li>)}</ul> : <>
+            <p>{row.question.prompt}</p>
+            <ol className="question-preview-choices">{row.question.choices.map((choice) => <li className={choice.id === row.question.correct_choice_id ? 'is-correct' : ''} key={choice.id}><span>{choice.id.toUpperCase()}</span>{choice.text}{choice.id === row.question.correct_choice_id && <strong><Check size={13} /> Correct</strong>}</li>)}</ol>
+          </>}
+        </article>)}</div>
+        <div className="admin-form-actions">
+          <button type="button" className="button button-quiet" onClick={() => { setImportPreview(null); setImportError(''); }}>Cancel preview</button>
+          <button type="button" className="button button-primary" onClick={importQuestions} disabled={busy === 'import' || invalidImportCount > 0}><FilePlus2 size={15} /> {busy === 'import' ? 'Importing…' : `Import ${importPreview.length} questions`}</button>
+        </div>
+      </div>}
+      {!importPreview && <button className="button button-outline" disabled={busy === 'import' || !bulkJson.trim()}><Eye size={15} /> Validate and preview</button>}
     </form>
 
-    <div className="admin-panel"><div className="admin-panel-title"><div><div className="eyebrow">{questions.length} QUESTIONS</div><h2>Question bank</h2></div></div>
-      {loading ? <p className="empty-copy">Loading question bank…</p> : questions.length === 0 ? <p className="empty-copy">Add course questions before scheduling an examination.</p> : <div className="admin-question-list">{questions.map((row) => <article className="admin-question-row" key={row.id}><div><strong>{row.prompt}</strong><small>{courses.find((course) => course.id === row.course_id)?.code || 'Course'} · {topics.find((topic) => topic.id === row.topic_id)?.title || 'Whole course'} · {row.active ? 'Active' : 'Inactive'}</small></div><div className="admin-row-actions"><button className="button button-quiet button-compact" type="button" onClick={() => editQuestion(row)}>Edit</button><button className="icon-button" type="button" aria-label="Delete question" disabled={busy === row.id} onClick={() => deleteQuestion(row)}><Trash2 size={15} /></button></div></article>)}</div>}
+    <div className="admin-panel"><div className="admin-panel-title"><div><div className="eyebrow">{filteredQuestions.length} OF {questions.length} QUESTIONS</div><h2>Question bank</h2></div></div>
+      <div className="question-bank-filters">
+        <label className="admin-search question-bank-search"><Search size={16} /><input aria-label="Search questions, courses, and topics" value={questionFilters.search} onChange={(event) => setQuestionFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Search question, course, or topic" /></label>
+        <label className="field-label">Course<select className="competition-input" value={questionFilters.courseId} onChange={(event) => setQuestionFilters((current) => ({ ...current, courseId: event.target.value, topicId: '' }))}><option value="">All courses</option>{courses.map((course) => <option key={course.id} value={course.id}>{course.code} · {course.title}</option>)}</select></label>
+        <label className="field-label">Topic<select className="competition-input" value={questionFilters.topicId} onChange={(event) => setQuestionFilters((current) => ({ ...current, topicId: event.target.value }))}><option value="">All topics</option>{importTopicOptions.map((topic) => <option key={topic.id} value={topic.id}>{topic.title}</option>)}</select></label>
+        <label className="field-label">Difficulty<select className="competition-input" value={questionFilters.difficulty} onChange={(event) => setQuestionFilters((current) => ({ ...current, difficulty: event.target.value }))}><option value="all">All difficulties</option>{difficultyOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        <label className="field-label">Status<select className="competition-input" value={questionFilters.status} onChange={(event) => setQuestionFilters((current) => ({ ...current, status: event.target.value }))}><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
+      </div>
+      {previewQuestion && <section className="question-bank-preview" id="question-bank-preview" aria-label="Question preview">
+        <div className="admin-panel-title"><div><div className="eyebrow">QUESTION PREVIEW</div><h3>{courses.find((course) => course.id === previewQuestion.course_id)?.code || 'Course'} · {topics.find((topic) => topic.id === previewQuestion.topic_id)?.title || 'Whole course'}</h3></div><button type="button" className="icon-button" aria-label="Close question preview" onClick={() => setPreviewQuestionId('')}><X size={16} /></button></div>
+        <p className="question-preview-prompt">{previewQuestion.prompt}</p>
+        <ol className="question-preview-choices">{choiceIds.map((id) => {
+          const choice = Array.isArray(previewQuestion.choices) ? previewQuestion.choices.find((item) => item.id === id) : null;
+          const correct = previewQuestion.correct_choice_id === id;
+          return <li className={correct ? 'is-correct' : ''} key={id}><span>{id.toUpperCase()}</span>{choice?.text || 'Choice text unavailable'}{correct && <strong><Check size={13} /> Correct answer</strong>}</li>;
+        })}</ol>
+        <div className="question-preview-meta"><span>Difficulty: <strong>{difficultyOptions.find((option) => option.value === previewQuestion.difficulty)?.label || previewQuestion.difficulty}</strong></span><span>Status: <strong>{previewQuestion.active ? 'Active' : 'Inactive'}</strong></span></div>
+        <p className="question-preview-explanation"><strong>Explanation</strong>{previewQuestion.explanation || 'No explanation provided.'}</p>
+      </section>}
+      {loading ? <p className="empty-copy">Loading question bank…</p> : questions.length === 0 ? <p className="empty-copy">Add course questions before scheduling an examination.</p> : filteredQuestions.length === 0 ? <p className="empty-copy">No questions match these search terms and filters.</p> : <div className="admin-question-list">{filteredQuestions.map((row) => <article className="admin-question-row" key={row.id}><div><strong>{row.prompt}</strong><small>{courses.find((course) => course.id === row.course_id)?.code || 'Course'} · {topics.find((topic) => topic.id === row.topic_id)?.title || 'Whole course'} · {difficultyOptions.find((option) => option.value === row.difficulty)?.label || row.difficulty} · {row.active ? 'Active' : 'Inactive'}</small></div><div className="admin-row-actions">
+        <button className="button button-quiet button-compact" type="button" aria-expanded={previewQuestionId === row.id} aria-controls="question-bank-preview" onClick={() => setPreviewQuestionId(previewQuestionId === row.id ? '' : row.id)}><Eye size={14} /> Preview</button>
+        <button className="button button-quiet button-compact" type="button" onClick={() => editQuestion(row)}>Edit</button>
+        <button className="button button-quiet button-compact" type="button" disabled={busy === row.id} onClick={() => setQuestionActive(row, !row.active)}>{row.active ? 'Deactivate' : 'Activate'}</button>
+        <button className="icon-button" type="button" aria-label={`Delete question: ${row.prompt.slice(0, 60)}`} disabled={busy === row.id} onClick={() => deleteQuestion(row)}><Trash2 size={15} /></button>
+      </div></article>)}</div>}
     </div>
   </section>;
 }
