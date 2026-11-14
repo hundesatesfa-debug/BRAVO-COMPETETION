@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
-import { BookOpen, Check, Eye, FilePlus2, FileText, Plus, Presentation, Save, Search, Trash2, Upload, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { BookOpen, Check, ChevronLeft, ChevronRight, Eye, FilePlus2, FileText, Plus, Presentation, Save, Search, Trash2, Upload, X } from 'lucide-react';
 import { Notice } from '../../components/UI.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { supabase } from '../../lib/supabase.js';
 
 const choiceIds = ['a', 'b', 'c', 'd'];
+const questionPageSize = 20;
 const difficultyOptions = [
   { value: 'introductory', label: 'Introductory' },
   { value: 'standard', label: 'Standard' },
@@ -16,7 +17,7 @@ const blankQuestion = { id: '', course_id: '', topic_id: '', prompt: '', choices
 function validateImportedQuestion(row, index, courseId, defaultTopicId, topics) {
   const errors = [];
   if (!row || typeof row !== 'object' || Array.isArray(row)) {
-    return { index, errors: ['Each item must be a question object.'], question: null };
+    return { index, source: row, errors: ['Each item must be a question object.'], question: null };
   }
 
   Object.keys(row).filter((key) => !importFields.has(key)).forEach((key) => {
@@ -103,7 +104,13 @@ function validateImportedQuestion(row, index, courseId, defaultTopicId, topics) 
     explanation,
     difficulty,
   };
-  return { index, errors, question };
+  return { index, source: row, errors, question };
+}
+
+function formatUpdatedAt(value) {
+  if (!value) return 'Unavailable';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Unavailable' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 }
 
 export default function AdminAcademics() {
@@ -123,30 +130,74 @@ export default function AdminAcademics() {
   const [importTopicId, setImportTopicId] = useState('');
   const [importPreview, setImportPreview] = useState(null);
   const [importError, setImportError] = useState('');
-  const [questionFilters, setQuestionFilters] = useState({ search: '', courseId: '', topicId: '', difficulty: 'all', status: 'all' });
-  const [previewQuestionId, setPreviewQuestionId] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [questionFilters, setQuestionFilters] = useState({ courseId: '', topicId: '', difficulty: 'all', status: 'all' });
+  const [selectedQuestion, setSelectedQuestion] = useState(null);
+  const [showQuestionForm, setShowQuestionForm] = useState(false);
+  const [showImportForm, setShowImportForm] = useState(false);
+  const [questionSearchInput, setQuestionSearchInput] = useState('');
+  const [questionSearch, setQuestionSearch] = useState('');
+  const [questionPage, setQuestionPage] = useState(0);
+  const [questionCount, setQuestionCount] = useState(0);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [questionLoading, setQuestionLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const questionSaveLock = useRef(false);
+  const importLock = useRef(false);
+  const questionRequestId = useRef(0);
 
-  const load = useCallback(async () => {
-    setLoading(true); setError('');
-    const [courseResult, levelResult, streamResult, topicResult, questionResult, materialResult] = await Promise.all([
+  const loadCatalog = useCallback(async () => {
+    setCatalogLoading(true); setError('');
+    const [courseResult, levelResult, streamResult, topicResult, materialResult] = await Promise.all([
       supabase.from('courses').select('*').order('title'),
       supabase.from('academic_levels').select('id, name').order('id'),
       supabase.from('streams').select('id, name').order('id'),
       supabase.from('academic_topics').select('*').order('week_number').order('title'),
-      supabase.from('question_bank').select('*').order('created_at', { ascending: false }).limit(500),
       supabase.from('academic_materials').select('*').order('created_at', { ascending: false }).limit(300),
     ]);
-    const firstError = courseResult.error || levelResult.error || streamResult.error || topicResult.error || questionResult.error || materialResult.error;
+    const firstError = courseResult.error || levelResult.error || streamResult.error || topicResult.error || materialResult.error;
     if (firstError) setError(firstError.message);
-    setCourses(courseResult.data || []); setTopics(topicResult.data || []); setQuestions(questionResult.data || []); setMaterials(materialResult.data || []);
+    setCourses(courseResult.data || []); setTopics(topicResult.data || []); setMaterials(materialResult.data || []);
     setAcademicLevels(levelResult.data || []); setStreams(streamResult.data || []);
-    setLoading(false);
+    setCatalogLoading(false);
   }, []);
-  useEffect(() => { load(); }, [load]);
+
+  const loadQuestions = useCallback(async () => {
+    const requestId = ++questionRequestId.current;
+    setQuestionLoading(true); setError('');
+    const search = questionSearch.trim();
+    let query = supabase.from('question_bank').select('*', { count: 'exact' }).order('created_at', { ascending: false });
+    if (search) query = query.ilike('prompt', `%${search}%`);
+    if (questionFilters.courseId) query = query.eq('course_id', questionFilters.courseId);
+    if (questionFilters.topicId) query = query.eq('topic_id', questionFilters.topicId);
+    if (questionFilters.difficulty !== 'all') query = query.eq('difficulty', questionFilters.difficulty);
+    if (questionFilters.status !== 'all') query = query.eq('active', questionFilters.status === 'active');
+    const start = questionPage * questionPageSize;
+    const { data, error: loadError, count } = await query.range(start, start + questionPageSize - 1);
+    if (requestId !== questionRequestId.current) return;
+    if (loadError) setError(loadError.message);
+    setQuestions(data || []); setQuestionCount(count || 0);
+    setQuestionLoading(false);
+  }, [questionFilters.courseId, questionFilters.difficulty, questionFilters.status, questionFilters.topicId, questionPage, questionSearch]);
+
+  useEffect(() => { loadCatalog(); }, [loadCatalog]);
+  useEffect(() => { loadQuestions(); }, [loadQuestions]);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setQuestionSearch(questionSearchInput.trim());
+      setQuestionPage(0);
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [questionSearchInput]);
+  useEffect(() => {
+    const lastPage = Math.max(0, Math.ceil(questionCount / questionPageSize) - 1);
+    if (questionPage > lastPage) setQuestionPage(lastPage);
+  }, [questionCount, questionPage]);
+
+  async function load() {
+    await Promise.all([loadCatalog(), loadQuestions()]);
+  }
 
   async function saveCourse(event) {
     event.preventDefault(); setBusy('course'); setError(''); setSuccess('');
@@ -230,43 +281,64 @@ export default function AdminAcademics() {
     setQuestion({ id: row.id, course_id: row.course_id, topic_id: row.topic_id || '', prompt: row.prompt,
       choices: choiceIds.map((id) => row.choices.find((choice) => choice.id === id)?.text || ''),
       correct_choice_id: row.correct_choice_id, explanation: row.explanation || '', difficulty: row.difficulty, active: row.active });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setSelectedQuestion(row);
+    setShowQuestionForm(true);
+    window.setTimeout(() => document.getElementById('question-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
   }
 
   async function saveQuestion(event) {
-    event.preventDefault(); setBusy('question'); setError(''); setSuccess('');
-    const trimmedChoices = question.choices.map((choice) => choice.trim());
-    if (!question.course_id || question.prompt.trim().length < 5 || question.prompt.trim().length > 3000
-      || trimmedChoices.some((choice) => !choice || choice.length > 500)
-      || !choiceIds.includes(question.correct_choice_id)
-      || !difficultyOptions.some((option) => option.value === question.difficulty)) {
-      setError('Enter a valid course, question, four non-empty choices, correct answer, and difficulty.');
-      setBusy('');
-      return;
-    }
+    event.preventDefault();
+    if (questionSaveLock.current) return;
+    questionSaveLock.current = true;
+    setBusy('question'); setError(''); setSuccess('');
+    try {
+      const trimmedChoices = question.choices.map((choice) => choice.trim());
+      const topicMatchesCourse = !question.topic_id
+        || topics.some((topic) => topic.id === question.topic_id && topic.course_id === question.course_id);
+      if (!question.course_id || question.prompt.trim().length < 5 || question.prompt.trim().length > 3000
+        || trimmedChoices.some((choice) => !choice || choice.length > 500)
+        || !choiceIds.includes(question.correct_choice_id)
+        || !difficultyOptions.some((option) => option.value === question.difficulty)
+        || !topicMatchesCourse) {
+        setError('Enter a valid course and topic, question, four non-empty choices, correct answer, and difficulty.');
+        return;
+      }
 
-    const payload = { course_id: question.course_id, topic_id: question.topic_id || null, prompt: question.prompt.trim(),
-      choices: choiceIds.map((id, index) => ({ id, text: trimmedChoices[index] })),
-      correct_choice_id: question.correct_choice_id, explanation: question.explanation.trim() || null,
-      difficulty: question.difficulty, active: question.active, created_by: account.user.id };
-    let result = question.id ? await supabase.from('question_bank').update(payload).eq('id', question.id) : await supabase.from('question_bank').insert(payload);
-    if (result.error) setError(result.error.message); else { setQuestion({ ...blankQuestion }); setPreviewQuestionId(''); setSuccess(question.id ? 'Question updated.' : 'Question added.'); await load(); }
-    setBusy('');
+      const payload = { course_id: question.course_id, topic_id: question.topic_id || null, prompt: question.prompt.trim(),
+        choices: choiceIds.map((id, index) => ({ id, text: trimmedChoices[index] })),
+        correct_choice_id: question.correct_choice_id, explanation: question.explanation.trim() || null,
+        difficulty: question.difficulty, active: question.active, created_by: account.user.id };
+      const result = question.id
+        ? await supabase.from('question_bank').update(payload).eq('id', question.id)
+        : await supabase.from('question_bank').insert(payload);
+      if (result.error) {
+        setError(result.error.message);
+      } else {
+        setQuestion({ ...blankQuestion }); setSelectedQuestion(null); setShowQuestionForm(false);
+        setSuccess(question.id ? 'Question updated.' : 'Question added.');
+        if (!question.id) setQuestionPage(0);
+        await load();
+      }
+    } finally {
+      questionSaveLock.current = false;
+      setBusy('');
+    }
   }
 
   async function setQuestionActive(row, active) {
     setBusy(row.id); setError(''); setSuccess('');
     const { error: updateError } = await supabase.from('question_bank').update({ active }).eq('id', row.id);
     if (updateError) setError(updateError.message);
-    else { setSuccess(active ? 'Question activated.' : 'Question deactivated.'); await load(); }
+    else {
+      setSelectedQuestion((current) => current?.id === row.id ? { ...current, active } : current);
+      setSuccess(active ? 'Question activated.' : 'Question deactivated.'); await load();
+    }
     setBusy('');
   }
 
-  async function deleteQuestion(row) {
-    setBusy(row.id); setError(''); setSuccess('');
-    const { error: deleteError } = await supabase.from('question_bank').delete().eq('id', row.id);
-    if (deleteError) setError(deleteError.message); else { setPreviewQuestionId(''); setSuccess('Question deleted.'); await load(); }
-    setBusy('');
+  function updateQuestionFilters(updates) {
+    setQuestionFilters((current) => ({ ...current, ...updates }));
+    setQuestionPage(0);
   }
 
   function prepareImport(event) {
@@ -287,51 +359,53 @@ export default function AdminAcademics() {
 
     const rows = parsed.map((row, index) => validateImportedQuestion(row, index + 1, importCourseId, importTopicId, topics));
     setImportPreview(rows);
+    const validCount = rows.filter((row) => !row.errors.length).length;
     const invalidCount = rows.filter((row) => row.errors.length).length;
-    setImportError(invalidCount
-      ? `${invalidCount} question${invalidCount === 1 ? '' : 's'} need correction. Nothing will be imported until every row is valid.`
-      : `${rows.length} questions passed validation. Review the preview before importing.`);
+    setImportError(`${validCount} valid · ${invalidCount} invalid. Review both groups; only valid questions can be imported.`);
   }
 
   async function importQuestions() {
-    if (!importPreview?.length || importPreview.some((row) => row.errors.length) || !importCourseId) return;
+    const validRows = importPreview?.filter((row) => !row.errors.length) || [];
+    if (!validRows.length || !importCourseId || importLock.current) return;
+    if (!window.confirm(`Import ${validRows.length} valid question${validRows.length === 1 ? '' : 's'}? Invalid rows will be left for correction.`)) return;
+    importLock.current = true;
     setBusy('import'); setError(''); setSuccess(''); setImportError('');
-    const records = importPreview.map(({ question: row }) => ({
-      course_id: importCourseId,
-      topic_id: row.topic_id,
-      prompt: row.prompt,
-      choices: row.choices,
-      correct_choice_id: row.correct_choice_id,
-      explanation: row.explanation,
-      difficulty: row.difficulty,
-      active: true,
-      created_by: account.user.id,
-    }));
-    const { error: saveError } = await supabase.from('question_bank').insert(records);
-    if (saveError) {
-      setError(saveError.message);
-    } else {
-      setBulkJson(''); setImportPreview(null); setImportCourseId(''); setImportTopicId('');
-      setSuccess(`${records.length} questions imported.`); await load();
+    try {
+      const records = validRows.map(({ question: row }) => ({
+        course_id: importCourseId,
+        topic_id: row.topic_id,
+        prompt: row.prompt,
+        choices: row.choices,
+        correct_choice_id: row.correct_choice_id,
+        explanation: row.explanation,
+        difficulty: row.difficulty,
+        active: true,
+        created_by: account.user.id,
+      }));
+      const { error: saveError } = await supabase.from('question_bank').insert(records);
+      if (saveError) {
+        setError(saveError.message);
+      } else {
+        const invalidRows = importPreview.filter((row) => row.errors.length);
+        setBulkJson(invalidRows.length ? JSON.stringify(invalidRows.map((row) => row.source), null, 2) : '');
+        setImportPreview(null);
+        if (!invalidRows.length) { setImportCourseId(''); setImportTopicId(''); setShowImportForm(false); }
+        setSuccess(`${records.length} valid question${records.length === 1 ? '' : 's'} imported.${invalidRows.length ? ` ${invalidRows.length} invalid row${invalidRows.length === 1 ? '' : 's'} remain in the editor.` : ''}`);
+        setQuestionPage(0);
+        await load();
+      }
+    } finally {
+      importLock.current = false;
+      setBusy('');
     }
-    setBusy('');
   }
 
   const scopedTopics = topics.filter((topic) => topic.course_id === question.course_id);
   const importTopics = topics.filter((topic) => topic.course_id === importCourseId);
-  const previewQuestion = questions.find((row) => row.id === previewQuestionId);
-  const searchTerm = questionFilters.search.trim().toLowerCase();
-  const filteredQuestions = questions.filter((row) => {
-    const course = courses.find((item) => item.id === row.course_id);
-    const topic = topics.find((item) => item.id === row.topic_id);
-    const searchableText = [row.prompt, course?.code, course?.title, topic?.title].filter(Boolean).join(' ').toLowerCase();
-    return (!searchTerm || searchableText.includes(searchTerm))
-      && (!questionFilters.courseId || row.course_id === questionFilters.courseId)
-      && (!questionFilters.topicId || row.topic_id === questionFilters.topicId)
-      && (questionFilters.difficulty === 'all' || row.difficulty === questionFilters.difficulty)
-      && (questionFilters.status === 'all' || (questionFilters.status === 'active' ? row.active : !row.active));
-  });
+  const previewQuestion = selectedQuestion;
   const invalidImportCount = importPreview?.filter((row) => row.errors.length).length || 0;
+  const validImportCount = importPreview?.length - invalidImportCount || 0;
+  const totalQuestionPages = Math.max(1, Math.ceil(questionCount / questionPageSize));
   const importTopicOptions = questionFilters.courseId
     ? topics.filter((topic) => topic.course_id === questionFilters.courseId)
     : topics;
@@ -365,7 +439,7 @@ export default function AdminAcademics() {
         <button className="button button-primary" disabled={busy === 'material' || !courses.length}><Upload size={15} /> {busy === 'material' ? 'Uploading…' : 'Publish material'}</button>
       </form>
       <div className="admin-panel"><div className="admin-panel-title"><div><div className="eyebrow">{materials.length} FILES</div><h2>Published materials</h2></div></div>
-        {!materials.length ? <p className="empty-copy">No official course files yet.</p> : <div className="admin-question-list">{materials.map((material) => {
+        {catalogLoading ? <p className="empty-copy">Loading published materials…</p> : !materials.length ? <p className="empty-copy">No official course files yet.</p> : <div className="admin-question-list">{materials.map((material) => {
           const course = courses.find((item) => item.id === material.course_id);
           const Icon = material.mime_type === 'application/pdf' ? FileText : Presentation;
           return <article className="admin-question-row" key={material.id}><div className="admin-material-label"><Icon size={16} /><span><strong>{material.title}</strong><small>{course?.code || 'Course'} · {material.active ? 'Visible to matching students' : 'Hidden'} · {Math.ceil(material.size_bytes / (1024 * 1024))} MB</small></span></div><div className="admin-row-actions"><button className="button button-quiet button-compact" disabled={busy === material.id} onClick={() => setMaterialActive(material, !material.active)}>{material.active ? 'Hide' : 'Publish'}</button><button className="icon-button" aria-label={`Delete ${material.title}`} disabled={busy === material.id} onClick={() => deleteMaterial(material)}><Trash2 size={15} /></button></div></article>;
@@ -373,7 +447,7 @@ export default function AdminAcademics() {
       </div>
     </div>
 
-    <form className="admin-panel admin-form" onSubmit={saveQuestion}><div className="admin-panel-title"><div><div className="eyebrow">MULTIPLE CHOICE · FOUR OPTIONS</div><h2>{question.id ? 'Edit question' : 'Add question'}</h2></div>{question.id && <button type="button" className="icon-button" onClick={() => setQuestion(blankQuestion)}><X size={16} /></button>}</div>
+    {showQuestionForm && <form className="admin-panel admin-form question-editor" id="question-editor" onSubmit={saveQuestion}><div className="admin-panel-title"><div><div className="eyebrow">MULTIPLE CHOICE · FOUR OPTIONS</div><h2>{question.id ? 'Edit question' : 'Add question'}</h2></div><button type="button" className="icon-button" aria-label="Close question editor" onClick={() => { setShowQuestionForm(false); setQuestion({ ...blankQuestion }); }}><X size={16} /></button></div>
       <div className="admin-form-grid">
         <label className="field-label">Course<select className="competition-input" required value={question.course_id} onChange={(event) => setQuestion({ ...question, course_id: event.target.value, topic_id: '' })}><option value="">Choose course</option>{courses.map((course) => <option key={course.id} value={course.id}>{course.code} · {course.title}</option>)}</select></label>
         <label className="field-label">Topic<select className="competition-input" value={question.topic_id} onChange={(event) => setQuestion({ ...question, topic_id: event.target.value })}><option value="">Whole course</option>{scopedTopics.map((topic) => <option value={topic.id} key={topic.id}>{topic.title}</option>)}</select></label>
@@ -385,8 +459,9 @@ export default function AdminAcademics() {
       <label className="question-active-toggle"><input type="checkbox" checked={question.active} onChange={(event) => setQuestion({ ...question, active: event.target.checked })} /><span><strong>Active</strong><small>Active questions can be selected for exams.</small></span></label>
       <div className="admin-form-actions"><button className="button button-primary" disabled={busy === 'question'}><Save size={15} /> {busy === 'question' ? 'Saving…' : question.id ? 'Save question' : 'Add question'}</button></div>
     </form>
+    }
 
-    <form className="admin-panel admin-form" onSubmit={prepareImport}><div className="admin-panel-title"><div><div className="eyebrow">BULK IMPORT</div><h2>Review questions before import</h2></div><FilePlus2 size={18} /></div>
+    {showImportForm && <form className="admin-panel admin-form" onSubmit={prepareImport}><div className="admin-panel-title"><div><div className="eyebrow">BULK IMPORT</div><h2>Review questions before import</h2></div><FilePlus2 size={18} /></div>
       <p className="empty-copy">Use the existing four-choice format. Each question needs prompt, four choices with ids a–d, and correct_choice_id. Explanation, difficulty, and topic_id are optional.</p>
       <div className="admin-form-grid">
         <label className="field-label">Course<select className="competition-input" required value={importCourseId} onChange={(event) => { setImportCourseId(event.target.value); setImportTopicId(''); setImportPreview(null); setImportError(''); }}><option value="">Choose course</option>{courses.map((course) => <option key={course.id} value={course.id}>{course.code} · {course.title}</option>)}</select></label>
@@ -395,47 +470,82 @@ export default function AdminAcademics() {
       <label className="field-label">Question JSON<textarea className="competition-input admin-code-input" rows="7" value={bulkJson} onChange={(event) => { setBulkJson(event.target.value); setImportPreview(null); setImportError(''); }} placeholder={'[{"prompt":"...","choices":[{"id":"a","text":"..."},{"id":"b","text":"..."},{"id":"c","text":"..."},{"id":"d","text":"..."}],"correct_choice_id":"a"}]'} /></label>
       {importError && <p className={`question-import-message${invalidImportCount ? ' question-import-message-error' : importPreview ? ' question-import-message-success' : ''}`} role="status">{importError}</p>}
       {importPreview && <div className="question-import-preview">
-        <div className="admin-panel-title"><h3>Import preview ({importPreview.length})</h3><span>{invalidImportCount ? `${invalidImportCount} invalid` : 'All rows valid'}</span></div>
-        <div className="question-import-list">{importPreview.map((row) => <article className={`question-import-row${row.errors.length ? ' is-invalid' : ''}`} key={row.index}>
-          <div className="question-import-row-heading"><strong>Question {row.index}</strong><span>{row.errors.length ? 'Needs correction' : difficultyOptions.find((option) => option.value === row.question.difficulty)?.label}</span></div>
-          {row.errors.length ? <ul className="question-import-errors">{row.errors.map((message) => <li key={message}>{message}</li>)}</ul> : <>
+        <div className="admin-panel-title"><h3>Import preview ({validImportCount} valid, {invalidImportCount} invalid)</h3></div>
+        <div className="question-import-group"><h4>Valid questions</h4>
+          {!validImportCount ? <p className="empty-copy">No valid questions to import.</p> : <div className="question-import-list">{importPreview.filter((row) => !row.errors.length).map((row) => <article className="question-import-row" key={row.index}>
+            <div className="question-import-row-heading"><strong>Question {row.index}</strong><span>{difficultyOptions.find((option) => option.value === row.question.difficulty)?.label}</span></div>
             <p>{row.question.prompt}</p>
             <ol className="question-preview-choices">{row.question.choices.map((choice) => <li className={choice.id === row.question.correct_choice_id ? 'is-correct' : ''} key={choice.id}><span>{choice.id.toUpperCase()}</span>{choice.text}{choice.id === row.question.correct_choice_id && <strong><Check size={13} /> Correct</strong>}</li>)}</ol>
-          </>}
-        </article>)}</div>
+          </article>)}</div>}
+        </div>
+        {!!invalidImportCount && <div className="question-import-group"><h4>Invalid questions</h4><div className="question-import-list">{importPreview.filter((row) => row.errors.length).map((row) => <article className="question-import-row is-invalid" key={row.index}>
+          <div className="question-import-row-heading"><strong>Question {row.index}</strong><span>Needs correction</span></div>
+          <p>{typeof row.source?.prompt === 'string' ? row.source.prompt : 'Question text unavailable.'}</p>
+          <ul className="question-import-errors">{row.errors.map((message) => <li key={message}>{message}</li>)}</ul>
+        </article>)}</div></div>}
         <div className="admin-form-actions">
           <button type="button" className="button button-quiet" onClick={() => { setImportPreview(null); setImportError(''); }}>Cancel preview</button>
-          <button type="button" className="button button-primary" onClick={importQuestions} disabled={busy === 'import' || invalidImportCount > 0}><FilePlus2 size={15} /> {busy === 'import' ? 'Importing…' : `Import ${importPreview.length} questions`}</button>
+          <button type="button" className="button button-primary" onClick={importQuestions} disabled={busy === 'import' || !validImportCount}><FilePlus2 size={15} /> {busy === 'import' ? 'Importing…' : `Import ${validImportCount} valid questions`}</button>
         </div>
       </div>}
       {!importPreview && <button className="button button-outline" disabled={busy === 'import' || !bulkJson.trim()}><Eye size={15} /> Validate and preview</button>}
     </form>
+    }
 
-    <div className="admin-panel"><div className="admin-panel-title"><div><div className="eyebrow">{filteredQuestions.length} OF {questions.length} QUESTIONS</div><h2>Question bank</h2></div></div>
-      <div className="question-bank-filters">
-        <label className="admin-search question-bank-search"><Search size={16} /><input aria-label="Search questions, courses, and topics" value={questionFilters.search} onChange={(event) => setQuestionFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Search question, course, or topic" /></label>
-        <label className="field-label">Course<select className="competition-input" value={questionFilters.courseId} onChange={(event) => setQuestionFilters((current) => ({ ...current, courseId: event.target.value, topicId: '' }))}><option value="">All courses</option>{courses.map((course) => <option key={course.id} value={course.id}>{course.code} · {course.title}</option>)}</select></label>
-        <label className="field-label">Topic<select className="competition-input" value={questionFilters.topicId} onChange={(event) => setQuestionFilters((current) => ({ ...current, topicId: event.target.value }))}><option value="">All topics</option>{importTopicOptions.map((topic) => <option key={topic.id} value={topic.id}>{topic.title}</option>)}</select></label>
-        <label className="field-label">Difficulty<select className="competition-input" value={questionFilters.difficulty} onChange={(event) => setQuestionFilters((current) => ({ ...current, difficulty: event.target.value }))}><option value="all">All difficulties</option>{difficultyOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-        <label className="field-label">Status<select className="competition-input" value={questionFilters.status} onChange={(event) => setQuestionFilters((current) => ({ ...current, status: event.target.value }))}><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
+    <div className={`question-bank-layout${previewQuestion ? ' has-preview' : ''}`}>
+      <div className="admin-panel question-bank-table-panel">
+        <div className="admin-panel-title">
+          <div><div className="eyebrow">{questionCount} QUESTIONS</div><h2>Question bank</h2></div>
+          <div className="admin-row-actions">
+            <button type="button" className="button button-outline button-compact" onClick={() => { setQuestion({ ...blankQuestion }); setShowQuestionForm(true); }}><Plus size={14} /> Add question</button>
+            <button type="button" className="button button-primary button-compact" onClick={() => setShowImportForm((current) => !current)}><FilePlus2 size={14} /> {showImportForm ? 'Close import' : 'Import JSON'}</button>
+          </div>
+        </div>
+        <div className="question-bank-filters">
+          <label className="admin-search question-bank-search"><Search size={16} /><input aria-label="Search question text" value={questionSearchInput} onChange={(event) => setQuestionSearchInput(event.target.value)} placeholder="Search question text" /></label>
+          <label className="field-label">Course<select className="competition-input" value={questionFilters.courseId} onChange={(event) => updateQuestionFilters({ courseId: event.target.value, topicId: '' })}><option value="">All courses</option>{courses.map((course) => <option key={course.id} value={course.id}>{course.code} · {course.title}</option>)}</select></label>
+          <label className="field-label">Topic<select className="competition-input" value={questionFilters.topicId} onChange={(event) => updateQuestionFilters({ topicId: event.target.value })}><option value="">All topics</option>{importTopicOptions.map((topic) => <option key={topic.id} value={topic.id}>{topic.title}</option>)}</select></label>
+          <label className="field-label">Difficulty<select className="competition-input" value={questionFilters.difficulty} onChange={(event) => updateQuestionFilters({ difficulty: event.target.value })}><option value="all">All difficulties</option>{difficultyOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          <label className="field-label">Status<select className="competition-input" value={questionFilters.status} onChange={(event) => updateQuestionFilters({ status: event.target.value })}><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
+          <button type="button" className="button button-quiet button-compact question-clear-filters" onClick={() => { setQuestionSearchInput(''); setQuestionSearch(''); setQuestionFilters({ courseId: '', topicId: '', difficulty: 'all', status: 'all' }); setQuestionPage(0); }}>Clear filters</button>
+        </div>
+        {questionLoading ? <p className="empty-copy">Loading question bank…</p> : questions.length === 0 ? <p className="empty-copy">{questionCount === 0 ? 'Add course questions to build your question bank.' : 'No questions match these filters.'}</p> : <div className="admin-table-wrap">
+          <table className="admin-table question-bank-table">
+            <thead><tr><th>Question</th><th>Course</th><th>Topic</th><th>Difficulty</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>{questions.map((row) => {
+              const course = courses.find((item) => item.id === row.course_id);
+              const topic = topics.find((item) => item.id === row.topic_id);
+              return <tr key={row.id} className={selectedQuestion?.id === row.id ? 'is-selected' : ''}>
+                <td><strong>{row.prompt}</strong></td>
+                <td>{course?.code || 'Course'}</td>
+                <td>{topic?.title || 'Whole course'}</td>
+                <td>{difficultyOptions.find((option) => option.value === row.difficulty)?.label || row.difficulty}</td>
+                <td><span className={`question-status${row.active ? ' is-active' : ''}`}>{row.active ? 'Active' : 'Inactive'}</span></td>
+                <td><div className="admin-row-actions">
+                  <button type="button" className="button button-quiet button-compact" aria-expanded={selectedQuestion?.id === row.id} onClick={() => setSelectedQuestion((current) => current?.id === row.id ? null : row)}><Eye size={14} /> Preview</button>
+                  <button type="button" className="button button-quiet button-compact" onClick={() => editQuestion(row)}>Edit</button>
+                  <button type="button" className="button button-quiet button-compact" disabled={busy === row.id} onClick={() => setQuestionActive(row, !row.active)}>{row.active ? 'Deactivate' : 'Activate'}</button>
+                </div></td>
+              </tr>;
+            })}</tbody>
+          </table>
+        </div>}
+        <div className="question-bank-pagination">
+          <span>Showing {questionCount ? questionPage * questionPageSize + 1 : 0}–{Math.min((questionPage + 1) * questionPageSize, questionCount)} of {questionCount}</span>
+          <div><button type="button" className="button button-quiet button-compact" aria-label="Previous page" disabled={questionPage === 0 || questionLoading} onClick={() => setQuestionPage((page) => page - 1)}><ChevronLeft size={15} /> Previous</button><span>Page {questionPage + 1} of {totalQuestionPages}</span><button type="button" className="button button-quiet button-compact" aria-label="Next page" disabled={questionPage + 1 >= totalQuestionPages || questionLoading} onClick={() => setQuestionPage((page) => page + 1)}>Next <ChevronRight size={15} /></button></div>
+        </div>
       </div>
-      {previewQuestion && <section className="question-bank-preview" id="question-bank-preview" aria-label="Question preview">
-        <div className="admin-panel-title"><div><div className="eyebrow">QUESTION PREVIEW</div><h3>{courses.find((course) => course.id === previewQuestion.course_id)?.code || 'Course'} · {topics.find((topic) => topic.id === previewQuestion.topic_id)?.title || 'Whole course'}</h3></div><button type="button" className="icon-button" aria-label="Close question preview" onClick={() => setPreviewQuestionId('')}><X size={16} /></button></div>
+      {previewQuestion && <><button type="button" className="question-preview-backdrop" aria-label="Close question preview" onClick={() => setSelectedQuestion(null)} /><aside className="admin-panel question-bank-preview" aria-label="Admin question preview">
+        <div className="admin-panel-title"><div><div className="eyebrow">ADMIN QUESTION PREVIEW</div><h3>{courses.find((course) => course.id === previewQuestion.course_id)?.code || 'Course'} · {topics.find((topic) => topic.id === previewQuestion.topic_id)?.title || 'Whole course'}</h3></div><button type="button" className="icon-button" aria-label="Close question preview" onClick={() => setSelectedQuestion(null)}><X size={16} /></button></div>
         <p className="question-preview-prompt">{previewQuestion.prompt}</p>
         <ol className="question-preview-choices">{choiceIds.map((id) => {
           const choice = Array.isArray(previewQuestion.choices) ? previewQuestion.choices.find((item) => item.id === id) : null;
           const correct = previewQuestion.correct_choice_id === id;
           return <li className={correct ? 'is-correct' : ''} key={id}><span>{id.toUpperCase()}</span>{choice?.text || 'Choice text unavailable'}{correct && <strong><Check size={13} /> Correct answer</strong>}</li>;
         })}</ol>
-        <div className="question-preview-meta"><span>Difficulty: <strong>{difficultyOptions.find((option) => option.value === previewQuestion.difficulty)?.label || previewQuestion.difficulty}</strong></span><span>Status: <strong>{previewQuestion.active ? 'Active' : 'Inactive'}</strong></span></div>
+        <div className="question-preview-meta"><span>Course: <strong>{courses.find((course) => course.id === previewQuestion.course_id)?.title || 'Unavailable'}</strong></span><span>Topic: <strong>{topics.find((topic) => topic.id === previewQuestion.topic_id)?.title || 'Whole course'}</strong></span><span>Difficulty: <strong>{difficultyOptions.find((option) => option.value === previewQuestion.difficulty)?.label || previewQuestion.difficulty}</strong></span><span>Status: <strong>{previewQuestion.active ? 'Active' : 'Inactive'}</strong></span><span>Last updated: <strong>{formatUpdatedAt(previewQuestion.updated_at)}</strong></span></div>
         <p className="question-preview-explanation"><strong>Explanation</strong>{previewQuestion.explanation || 'No explanation provided.'}</p>
-      </section>}
-      {loading ? <p className="empty-copy">Loading question bank…</p> : questions.length === 0 ? <p className="empty-copy">Add course questions before scheduling an examination.</p> : filteredQuestions.length === 0 ? <p className="empty-copy">No questions match these search terms and filters.</p> : <div className="admin-question-list">{filteredQuestions.map((row) => <article className="admin-question-row" key={row.id}><div><strong>{row.prompt}</strong><small>{courses.find((course) => course.id === row.course_id)?.code || 'Course'} · {topics.find((topic) => topic.id === row.topic_id)?.title || 'Whole course'} · {difficultyOptions.find((option) => option.value === row.difficulty)?.label || row.difficulty} · {row.active ? 'Active' : 'Inactive'}</small></div><div className="admin-row-actions">
-        <button className="button button-quiet button-compact" type="button" aria-expanded={previewQuestionId === row.id} aria-controls="question-bank-preview" onClick={() => setPreviewQuestionId(previewQuestionId === row.id ? '' : row.id)}><Eye size={14} /> Preview</button>
-        <button className="button button-quiet button-compact" type="button" onClick={() => editQuestion(row)}>Edit</button>
-        <button className="button button-quiet button-compact" type="button" disabled={busy === row.id} onClick={() => setQuestionActive(row, !row.active)}>{row.active ? 'Deactivate' : 'Activate'}</button>
-        <button className="icon-button" type="button" aria-label={`Delete question: ${row.prompt.slice(0, 60)}`} disabled={busy === row.id} onClick={() => deleteQuestion(row)}><Trash2 size={15} /></button>
-      </div></article>)}</div>}
+      </aside></>}
     </div>
   </section>;
 }
