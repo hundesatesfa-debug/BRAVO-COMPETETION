@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Check,
@@ -43,15 +42,75 @@ const registrationLabels = {
 function formatDate(value) {
   if (!value) return 'Not scheduled';
 
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return 'Not scheduled';
+  }
+
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: 'medium',
     timeStyle: 'short',
-  }).format(new Date(value));
+  }).format(date);
 }
 
 function settingText(value) {
   if (typeof value === 'string') return value;
   return value == null ? '' : String(value);
+}
+
+function normalizeLevel(value) {
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+
+  if (
+    ['grade_12', 'grade12', '12'].includes(normalized)
+  ) {
+    return 'grade_12';
+  }
+
+  if (
+    [
+      'freshman',
+      'university_freshman',
+      'universityfreshman',
+    ].includes(normalized)
+  ) {
+    return 'freshman';
+  }
+
+  return '';
+}
+
+function normalizeStream(value) {
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+
+  if (
+    [
+      'natural_science',
+      'natural',
+      'natural_sciences',
+    ].includes(normalized)
+  ) {
+    return 'natural_science';
+  }
+
+  if (
+    [
+      'social_science',
+      'social',
+      'social_sciences',
+    ].includes(normalized)
+  ) {
+    return 'social_science';
+  }
+
+  return '';
 }
 
 export default function CompetitionPage() {
@@ -67,7 +126,11 @@ export default function CompetitionPage() {
   const [success, setSuccess] = useState('');
 
   const load = useCallback(async () => {
-    if (!account?.user?.id) return;
+    if (!account?.user?.id) {
+      setCompetitions([]);
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError('');
@@ -94,25 +157,30 @@ export default function CompetitionPage() {
             .order('submitted_at', { ascending: true }),
         ]);
 
-      // Diagnostic logs: identify where MATH disappears.
-      const normalized = normalizeCompetitionFeed(feedResult.data);
-
-      console.log('Competition feed:', feedResult.data);
-      console.log('Normalized competitions:', normalized);
-      console.log('Student profile:', account?.profile);
-
       const firstError =
         feedResult.error ||
         settingsResult.error ||
         paymentsResult.error;
 
       if (firstError) {
-        console.error('Competition loading error:', firstError);
+        console.error(
+          'Competition loading error:',
+          firstError
+        );
+
         setError(
           firstError.message ||
-          'Competition information could not be loaded.'
+            'Competition information could not be loaded.'
         );
       }
+
+      const normalized = normalizeCompetitionFeed(
+        feedResult.data
+      );
+
+      console.log('Competition feed:', feedResult.data);
+      console.log('Normalized competitions:', normalized);
+      console.log('Student profile:', account?.profile);
 
       setCompetitions(normalized);
 
@@ -134,15 +202,19 @@ export default function CompetitionPage() {
         )
       );
     } catch (loadError) {
-      console.error('Competition load failed:', loadError);
+      console.error(
+        'Competition load failed:',
+        loadError
+      );
+
       setError(
         loadError.message ||
-        'Competition information could not be loaded.'
+          'Competition information could not be loaded.'
       );
     } finally {
       setLoading(false);
     }
-  }, [account?.user?.id, account?.profile]);
+  }, [account?.user?.id]);
 
   useEffect(() => {
     load();
@@ -151,39 +223,54 @@ export default function CompetitionPage() {
   const profile = account?.profile;
 
   const visibleCompetitions = useMemo(() => {
+    const studentLevel = normalizeLevel(
+      profile?.academic_level ??
+        profile?.academic_level_id
+    );
+
+    const studentStream = normalizeStream(
+      profile?.stream ??
+        profile?.stream_id
+    );
+
     const filtered = competitions.filter((competition) => {
-      if (!competition.academic_level && !competition.stream) {
-        return true;
-      }
+      const competitionLevel = normalizeLevel(
+        competition.academic_level
+      );
 
-      const levelValue =
-        profile?.academic_level === 'Grade 12'
-          ? 'grade_12'
-          : profile?.academic_level === 'University Freshman'
-            ? 'freshman'
-            : '';
+      const competitionStream = normalizeStream(
+        competition.stream
+      );
 
-      const streamValue =
-        profile?.stream === 'Natural Science'
-          ? 'natural_science'
-          : profile?.stream === 'Social Science'
-            ? 'social_science'
-            : '';
-
+      // If profile information is not available,
+      // do not hide the competition.
       const levelMatches =
-        !competition.academic_level ||
-        competition.academic_level === levelValue;
+        !competitionLevel ||
+        !studentLevel ||
+        competitionLevel === studentLevel;
 
       const streamMatches =
-        !competition.stream ||
-        competition.stream === streamValue;
+        !competitionStream ||
+        !studentStream ||
+        competitionStream === studentStream;
 
       return levelMatches && streamMatches;
     });
 
-    console.log('Competitions before profile filter:', competitions);
-    console.log('Profile used for filtering:', profile);
-    console.log('Competitions after profile filter:', filtered);
+    console.log(
+      'Competitions before profile filter:',
+      competitions
+    );
+
+    console.log(
+      'Profile used for filtering:',
+      profile
+    );
+
+    console.log(
+      'Competitions after profile filter:',
+      filtered
+    );
 
     return filtered;
   }, [competitions, profile]);
@@ -193,21 +280,28 @@ export default function CompetitionPage() {
     setError('');
     setSuccess('');
 
-    const { error: rpcError } = await supabase.rpc(
-      'register_for_competition',
-      { p_competition_id: competition.id }
-    );
-
-    if (rpcError) {
-      setError(rpcError.message);
-    } else {
-      setSuccess(
-        'Your place is reserved. Submit your payment receipt to confirm enrollment.'
+    try {
+      const { error: rpcError } = await supabase.rpc(
+        'register_for_competition',
+        {
+          p_competition_id: competition.id,
+        }
       );
-      await load();
-    }
 
-    setBusyId('');
+      if (rpcError) {
+        setError(rpcError.message);
+      } else {
+        setSuccess(
+          'Your place is reserved. Submit your payment receipt to confirm enrollment.'
+        );
+
+        await load();
+      }
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setBusyId('');
+    }
   }
 
   async function withdraw(registrationId) {
@@ -215,19 +309,28 @@ export default function CompetitionPage() {
     setError('');
     setSuccess('');
 
-    const { error: rpcError } = await supabase.rpc(
-      'withdraw_competition_registration',
-      { p_registration_id: registrationId }
-    );
+    try {
+      const { error: rpcError } = await supabase.rpc(
+        'withdraw_competition_registration',
+        {
+          p_registration_id: registrationId,
+        }
+      );
 
-    if (rpcError) {
-      setError(rpcError.message);
-    } else {
-      setSuccess('Your unpaid registration was withdrawn.');
-      await load();
+      if (rpcError) {
+        setError(rpcError.message);
+      } else {
+        setSuccess(
+          'Your unpaid registration was withdrawn.'
+        );
+
+        await load();
+      }
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setBusyId('');
     }
-
-    setBusyId('');
   }
 
   async function requestRefund(registrationId) {
@@ -235,29 +338,52 @@ export default function CompetitionPage() {
     setError('');
     setSuccess('');
 
-    const { error: rpcError } = await supabase.rpc(
-      'request_competition_refund',
-      { p_registration_id: registrationId }
-    );
+    try {
+      const { error: rpcError } = await supabase.rpc(
+        'request_competition_refund',
+        {
+          p_registration_id: registrationId,
+        }
+      );
 
-    if (rpcError) {
-      setError(rpcError.message);
-    } else {
-      setSuccess('Your refund request was recorded.');
-      await load();
+      if (rpcError) {
+        setError(rpcError.message);
+      } else {
+        setSuccess(
+          'Your refund request was recorded.'
+        );
+
+        await load();
+      }
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setBusyId('');
     }
-
-    setBusyId('');
   }
 
   async function submitPayment(event, competition) {
     event.preventDefault();
 
     const form = new FormData(event.currentTarget);
-    const method = String(form.get('method') || '');
-    const reference = String(form.get('reference') || '').trim();
+
+    const method = String(
+      form.get('method') || ''
+    );
+
+    const reference = String(
+      form.get('reference') || ''
+    ).trim();
+
     const file = form.get('receipt');
-    const registrationId = competition.registration_id;
+
+    const registrationId =
+      competition.registration_id;
+
+    if (!registrationId) {
+      setError('Registration information is missing.');
+      return;
+    }
 
     if (!(file instanceof File) || file.size < 1) {
       setError('Choose your receipt image or PDF.');
@@ -265,7 +391,9 @@ export default function CompetitionPage() {
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setError('Receipt files must be 5 MB or smaller.');
+      setError(
+        'Receipt files must be 5 MB or smaller.'
+      );
       return;
     }
 
@@ -277,7 +405,9 @@ export default function CompetitionPage() {
         'application/pdf',
       ].includes(file.type)
     ) {
-      setError('Choose a JPG, PNG, WEBP, or PDF receipt.');
+      setError(
+        'Choose a JPG, PNG, WEBP, or PDF receipt.'
+      );
       return;
     }
 
@@ -285,52 +415,61 @@ export default function CompetitionPage() {
     setError('');
     setSuccess('');
 
-    const safeName =
-      file.name.replace(/[^A-Za-z0-9._-]/g, '_').slice(-80) ||
-      'receipt';
+    try {
+      const safeName =
+        file.name
+          .replace(/[^A-Za-z0-9._-]/g, '_')
+          .slice(-80) || 'receipt';
 
-    const path = `${account.user.id}/${registrationId}/${crypto.randomUUID()}-${safeName}`;
+      const path = `${
+        account.user.id
+      }/${registrationId}/${crypto.randomUUID()}-${safeName}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from('payment-receipts')
-      .upload(path, file, {
-        contentType: file.type,
-        cacheControl: '3600',
-        upsert: false,
-      });
+      const { error: uploadError } =
+        await supabase.storage
+          .from('payment-receipts')
+          .upload(path, file, {
+            contentType: file.type,
+            cacheControl: '3600',
+            upsert: false,
+          });
 
-    if (uploadError) {
-      setError(uploadError.message);
-      setBusyId('');
-      return;
-    }
-
-    const { error: submitError } = await supabase.rpc(
-      'submit_competition_payment',
-      {
-        p_registration_id: registrationId,
-        p_method: method,
-        p_transaction_reference: reference,
-        p_receipt_path: path,
-        p_mime_type: file.type,
-        p_size_bytes: file.size,
+      if (uploadError) {
+        setError(uploadError.message);
+        return;
       }
-    );
 
-    if (submitError) {
-      await supabase.storage
-        .from('payment-receipts')
-        .remove([path]);
+      const { error: submitError } =
+        await supabase.rpc(
+          'submit_competition_payment',
+          {
+            p_registration_id: registrationId,
+            p_method: method,
+            p_transaction_reference: reference,
+            p_receipt_path: path,
+            p_mime_type: file.type,
+            p_size_bytes: file.size,
+          }
+        );
 
-      setError(submitError.message);
-    } else {
-      setSuccess(
-        'Receipt submitted. Your place becomes eligible after an administrator verifies the payment.'
-      );
-      await load();
+      if (submitError) {
+        await supabase.storage
+          .from('payment-receipts')
+          .remove([path]);
+
+        setError(submitError.message);
+      } else {
+        setSuccess(
+          'Receipt submitted. Your place becomes eligible after an administrator verifies the payment.'
+        );
+
+        await load();
+      }
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setBusyId('');
     }
-
-    setBusyId('');
   }
 
   return (
@@ -340,10 +479,14 @@ export default function CompetitionPage() {
     >
       <div className="competition-heading">
         <div>
-          <div className="eyebrow">COMPETITION SEASON</div>
+          <div className="eyebrow">
+            COMPETITION SEASON
+          </div>
+
           <h1 id="competitions-title">
             Find your next challenge
           </h1>
+
           <p>
             Weekly Arenas and Grand Competitions have separate
             payments, exams, rankings, and prize records.
@@ -352,7 +495,10 @@ export default function CompetitionPage() {
       </div>
 
       {error && <Notice>{error}</Notice>}
-      {success && <Notice tone="success">{success}</Notice>}
+
+      {success && (
+        <Notice tone="success">{success}</Notice>
+      )}
 
       {loading ? (
         <div className="competition-empty">
@@ -362,7 +508,9 @@ export default function CompetitionPage() {
       ) : visibleCompetitions.length === 0 ? (
         <div className="competition-empty">
           <Trophy size={22} />
+
           <h3>No competitions are published yet</h3>
+
           <p>
             When registration opens, its fee, dates, and prize
             rules will appear here.
@@ -377,12 +525,28 @@ export default function CompetitionPage() {
             const payment =
               payments[competition.registration_id];
 
+            const now = Date.now();
+
+            const registrationOpensAt =
+              competition.registration_opens_at
+                ? new Date(
+                    competition.registration_opens_at
+                  ).getTime()
+                : null;
+
+            const registrationDeadline =
+              competition.registration_deadline
+                ? new Date(
+                    competition.registration_deadline
+                  ).getTime()
+                : null;
+
             const open =
               competition.status === 'registration_open' &&
-              new Date(competition.registration_opens_at) <=
-                new Date() &&
-              new Date(competition.registration_deadline) >
-                new Date();
+              registrationOpensAt !== null &&
+              registrationDeadline !== null &&
+              registrationOpensAt <= now &&
+              registrationDeadline > now;
 
             const full =
               competition.participant_limit != null &&
@@ -407,7 +571,9 @@ export default function CompetitionPage() {
                   </span>
 
                   <span className="competition-target">
-                    {typeLabels[competition.competition_type]}
+                    {typeLabels[
+                      competition.competition_type
+                    ] || competition.competition_type}
                   </span>
                 </div>
 
@@ -420,16 +586,22 @@ export default function CompetitionPage() {
                 <div className="competition-stats">
                   <div className="competition-stat">
                     <span>Entry fee</span>
+
                     <strong>
-                      ETB {Number(competition.entry_fee_etb).toFixed(0)}
+                      ETB{' '}
+                      {Number(
+                        competition.entry_fee_etb
+                      ).toFixed(0)}
                     </strong>
                   </div>
 
                   {competition.eligible_count != null && (
                     <div className="competition-stat">
                       <span>Verified participants</span>
+
                       <strong>
                         {competition.eligible_count}
+
                         {competition.participant_limit
                           ? ` / ${competition.participant_limit}`
                           : ''}
@@ -439,6 +611,7 @@ export default function CompetitionPage() {
 
                   <div className="competition-stat">
                     <span>Reward pool share</span>
+
                     <strong>
                       {competition.reward_share_pct}%
                     </strong>
@@ -448,18 +621,22 @@ export default function CompetitionPage() {
                 <div className="competition-dates">
                   <span>
                     <Clock3 size={15} />
-                    Starts {formatDate(competition.starts_at)}
+                    Starts{' '}
+                    {formatDate(competition.starts_at)}
                   </span>
 
                   <span>
                     <Clock3 size={15} />
                     Register by{' '}
-                    {formatDate(competition.registration_deadline)}
+                    {formatDate(
+                      competition.registration_deadline
+                    )}
                   </span>
 
                   <span>
                     <UsersRound size={15} />
-                    Top {competition.winner_percent}% share the prize pool
+                    Top {competition.winner_percent}% share
+                    the prize pool
                   </span>
                 </div>
 
@@ -468,8 +645,9 @@ export default function CompetitionPage() {
                     <strong
                       className={`status-pill status-${registrationStatus}`}
                     >
-                      {registrationLabels[registrationStatus] ||
-                        registrationStatus}
+                      {registrationLabels[
+                        registrationStatus
+                      ] || registrationStatus}
                     </strong>
 
                     {payment && (
@@ -477,41 +655,55 @@ export default function CompetitionPage() {
                         {payment.method === 'cbe_birr'
                           ? 'CBE Birr'
                           : 'Telebirr'}
+
                         {' · '}
+
                         {payment.status}
+
                         {' · '}
+
                         {payment.transaction_reference}
                       </span>
                     )}
 
-                    {registrationStatus === 'awaiting_payment' &&
+                    {registrationStatus ===
+                      'awaiting_payment' &&
                       open && (
                         <button
                           type="button"
                           className="button button-quiet button-compact"
                           onClick={() =>
-                            withdraw(competition.registration_id)
+                            withdraw(
+                              competition.registration_id
+                            )
                           }
                           disabled={
-                            busyId === competition.registration_id
+                            busyId ===
+                            competition.registration_id
                           }
                         >
-                          {busyId === competition.registration_id
+                          {busyId ===
+                          competition.registration_id
                             ? 'Updating…'
                             : 'Withdraw place'}
                         </button>
                       )}
 
-                    {registrationStatus === 'refund_pending' &&
-                      competition.status === 'cancelled' && (
+                    {registrationStatus ===
+                      'refund_pending' &&
+                      competition.status ===
+                        'cancelled' && (
                         <button
                           type="button"
                           className="button button-quiet button-compact"
                           onClick={() =>
-                            requestRefund(competition.registration_id)
+                            requestRefund(
+                              competition.registration_id
+                            )
                           }
                           disabled={
-                            busyId === competition.registration_id
+                            busyId ===
+                            competition.registration_id
                           }
                         >
                           Request refund
@@ -529,8 +721,13 @@ export default function CompetitionPage() {
                     <button
                       type="button"
                       className="button button-primary"
-                      onClick={() => register(competition)}
-                      disabled={full || busyId === competition.id}
+                      onClick={() =>
+                        register(competition)
+                      }
+                      disabled={
+                        full ||
+                        busyId === competition.id
+                      }
                     >
                       {busyId === competition.id
                         ? 'Reserving…'
@@ -558,19 +755,25 @@ export default function CompetitionPage() {
                       <div>
                         <strong>
                           Pay{' '}
-                          {Number(competition.entry_fee_etb).toFixed(0)}
+                          {Number(
+                            competition.entry_fee_etb
+                          ).toFixed(0)}
                           {' '}ETB
                         </strong>
+
                         <span>
-                          Submit the proof after transferring through
-                          the active account below.
+                          Submit the proof after transferring
+                          through the active account below.
                         </span>
                       </div>
                     </div>
 
                     <div
                       className="competition-form-grid"
-                      style={{ display: 'grid', gap: '18px' }}
+                      style={{
+                        display: 'grid',
+                        gap: '18px',
+                      }}
                     >
                       <div
                         style={{
@@ -596,7 +799,9 @@ export default function CompetitionPage() {
                               setSelectedMethod('telebirr')
                             }
                           >
-                            <span style={{ marginRight: 8 }}>
+                            <span
+                              style={{ marginRight: 8 }}
+                            >
                               📱
                             </span>
                             Telebirr
@@ -619,7 +824,9 @@ export default function CompetitionPage() {
                               setSelectedMethod('cbe_birr')
                             }
                           >
-                            <span style={{ marginRight: 8 }}>
+                            <span
+                              style={{ marginRight: 8 }}
+                            >
                               🏦
                             </span>
                             CBE / Bank
@@ -699,7 +906,9 @@ export default function CompetitionPage() {
                           padding: '18px 16px',
                         }}
                       >
-                        <span style={{ color: '#b7c2d0' }}>
+                        <span
+                          style={{ color: '#b7c2d0' }}
+                        >
                           Exact amount to transfer:
                         </span>
 
@@ -709,7 +918,9 @@ export default function CompetitionPage() {
                             color: '#f5f7fb',
                           }}
                         >
-                          {Number(competition.entry_fee_etb).toFixed(0)}
+                          {Number(
+                            competition.entry_fee_etb
+                          ).toFixed(0)}
                           {' '}ETB
                         </strong>
                       </div>
@@ -723,20 +934,29 @@ export default function CompetitionPage() {
                       >
                         <div>
                           1. Transfer exactly{' '}
-                          {Number(competition.entry_fee_etb).toFixed(0)}
+                          {Number(
+                            competition.entry_fee_etb
+                          ).toFixed(0)}
                           {' '}ETB to the account above.
                         </div>
+
                         <div>
-                          2. Copy the official receipt link from the
-                          confirmation SMS.
+                          2. Copy the official receipt link
+                          from the confirmation SMS.
                         </div>
+
                         <div>
-                          3. Paste the receipt link below and click
-                          Verify payment.
+                          3. Paste the receipt link below and
+                          click Verify payment.
                         </div>
                       </div>
 
-                      <div style={{ display: 'grid', gap: 8 }}>
+                      <div
+                        style={{
+                          display: 'grid',
+                          gap: 8,
+                        }}
+                      >
                         <label
                           className="field-label"
                           style={{
@@ -760,9 +980,15 @@ export default function CompetitionPage() {
                         />
                       </div>
 
-                      <div style={{ display: 'grid', gap: 8 }}>
+                      <div
+                        style={{
+                          display: 'grid',
+                          gap: 8,
+                        }}
+                      >
                         <label className="field-label">
                           Payment proof
+
                           <input
                             className="competition-input"
                             name="receipt"
@@ -785,11 +1011,14 @@ export default function CompetitionPage() {
                         className="button button-primary"
                         type="submit"
                         disabled={
-                          busyId === competition.registration_id
+                          busyId ===
+                          competition.registration_id
                         }
                       >
                         <UploadCloud size={15} />
-                        {busyId === competition.registration_id
+
+                        {busyId ===
+                        competition.registration_id
                           ? 'Submitting…'
                           : 'Verify payment & activate'}
                       </button>
@@ -800,14 +1029,16 @@ export default function CompetitionPage() {
                 {registrationStatus === 'eligible' && (
                   <div className="payment-confirmed">
                     <Check size={16} />
-                    Verified entry. Check Examinations for your
-                    scheduled assessment!.
+
+                    Verified entry. Check Examinations for
+                    your scheduled assessment.
                   </div>
                 )}
 
                 {payment?.status === 'rejected' && (
                   <div className="payment-confirmed payment-needs-review">
                     <FileCheck2 size={16} />
+
                     {payment.review_note ||
                       'Review the payment note and submit corrected payment details.'}
                   </div>
@@ -819,8 +1050,9 @@ export default function CompetitionPage() {
       )}
 
       <p className="operational-disclaimer">
-        Bravos are learning points, not money. Prize amounts are based
-        on verified entries and the competition rules shown above.
+        Bravos are learning points, not money. Prize amounts
+        are based on verified entries and the competition
+        rules shown above.
       </p>
     </section>
   );
