@@ -801,7 +801,7 @@ export default function CompetitionPage() {
                   <div className="payment-confirmed">
                     <Check size={16} />
                     Verified entry. Check Examinations for your
-                    scheduled assessment.
+                    scheduled assessment!.
                   </div>
                 )}
 
