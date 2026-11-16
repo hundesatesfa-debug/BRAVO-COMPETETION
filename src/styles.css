@@ -1782,3 +1782,206 @@ body { background: var(--bg); color: var(--text); }
   .question-preview-choices li { align-items: flex-start; }
   .question-preview-choices li > strong { margin-left: auto; }
 }
+
+
+
+
+
+
+/* =========================================
+   BR@VO — Examination interface
+========================================= */
+
+.exam-question {
+  margin: 26px 0;
+  padding: 28px;
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.2));
+  border-radius: 18px;
+  background: var(--surface-secondary, rgba(148, 163, 184, 0.045));
+}
+
+.exam-question-number {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.exam-question h3 {
+  margin: 0 0 28px;
+  font-size: clamp(1.05rem, 2vw, 1.3rem);
+  line-height: 1.75;
+  font-weight: 600;
+}
+
+.exam-choice-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+.exam-choice {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 66px;
+  padding: 15px 18px;
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.22));
+  border-radius: 13px;
+  background: var(--surface, rgba(148, 163, 184, 0.06));
+  color: inherit;
+  font: inherit;
+  font-size: 0.96rem;
+  line-height: 1.6;
+  text-align: left;
+  white-space: normal;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease,
+    transform 160ms ease;
+}
+
+.exam-choice:hover:not(:disabled) {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.07);
+  transform: translateY(-1px);
+}
+
+.exam-choice.selected {
+  border: 1.5px solid #22c55e;
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.exam-choice:disabled {
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.exam-choice-letter {
+  display: inline-flex;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.25));
+  border-radius: 9px;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.exam-choice.selected .exam-choice-letter {
+  border-color: #22c55e;
+  background: #22c55e;
+  color: #071b0e;
+}
+
+.exam-progress-track {
+  overflow: hidden;
+  height: 7px;
+  border-radius: 20px;
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.exam-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #22c55e;
+  transition: width 200ms ease;
+}
+
+.exam-timer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  border-radius: 12px;
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.exam-timer strong {
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.exam-timer-ended {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.exam-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.exam-control-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 340px;
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.exam-result-card {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 22px;
+  padding: 28px;
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.2));
+  border-radius: 18px;
+}
+
+.exam-result-card > div {
+  display: grid;
+  gap: 6px;
+}
+
+.exam-result-card strong {
+  font-size: 2rem;
+}
+
+@media (max-width: 640px) {
+  .exam-question {
+    padding: 18px;
+    margin: 18px 0;
+  }
+
+  .exam-choice {
+    padding: 13px;
+    min-height: 60px;
+  }
+
+  .exam-controls {
+    align-items: stretch;
+  }
+
+  .exam-controls > button {
+    flex: 1;
+  }
+
+  .exam-control-note {
+    order: 3;
+    max-width: none;
+    width: 100%;
+  }
+
+  .exam-timer {
+    padding: 10px 12px;
+  }
+}
