@@ -1,7 +1,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
@@ -106,6 +105,7 @@ export default function ExamPage() {
         });
 
       if (sessionError) throw sessionError;
+
       if (!sessionData) {
         throw new Error('The examination session could not be loaded.');
       }
@@ -246,9 +246,6 @@ export default function ExamPage() {
     (item) => item.position === currentPosition,
   );
 
-  const answered =
-    session?.questions?.filter((item) => item.selected_choice_id).length || 0;
-
   const finished =
     session?.status === 'submitted' || session?.status === 'expired';
 
@@ -256,54 +253,33 @@ export default function ExamPage() {
     session?.deadline_at &&
     clockNow >= Date.parse(session.deadline_at);
 
-  return (
-    <section className="operational-page" aria-labelledby="exams-title">
-      <div className="dashboard-section-heading">
-        <div>
-          <div className="eyebrow">ACADEMIC ASSESSMENTS</div>
-          <h1 id="exams-title">Examinations</h1>
-        </div>
+  const focusMode = Boolean(activeExam && session);
 
-        <span className="section-note">
-          Server timed · answers saved as you go
-        </span>
-      </div>
+  return (
+    <section
+      className={`operational-page ${focusMode ? 'exam-focus-mode' : ''}`}
+      aria-label={focusMode ? 'Examination workspace' : 'Examinations'}
+    >
+      {!focusMode && (
+        <div className="dashboard-section-heading">
+          <div>
+            <div className="eyebrow">ACADEMIC ASSESSMENTS</div>
+            <h1 id="exams-title">Examinations</h1>
+          </div>
+        </div>
+      )}
 
       {error && <Notice>{error}</Notice>}
-      {notice && <Notice tone="success">{notice}</Notice>}
+
+      {notice && finished && (
+        <Notice tone="success">{notice}</Notice>
+      )}
 
       {activeExam && session ? (
-        <article className="exam-panel">
-          <header className="exam-panel-header">
-            <div>
-              <span className="eyebrow">
-                {activeExam.course_title || 'Academic examination'}
-              </span>
-
-              <h2>{activeExam.title}</h2>
-
-              <p>
-                Question {Math.min(currentPosition, session.total_questions)} of{' '}
-                {session.total_questions} · {answered} saved
-              </p>
-            </div>
-
-            {session.status === 'in_progress' && (
-              <div
-                className={`exam-timer${
-                  remaining === '00:00' ? ' exam-timer-ended' : ''
-                }`}
-              >
-                <Clock3 size={18} />
-                <span>Time remaining</span>
-                <strong>{remaining}</strong>
-              </div>
-            )}
-          </header>
-
+        <article className="exam-panel exam-focus-shell">
           {finished ? (
             <div className="exam-result-card">
-              <CheckCircle2 size={28} />
+              <CheckCircle2 size={30} />
 
               <div>
                 <span>
@@ -321,11 +297,12 @@ export default function ExamPage() {
               </div>
 
               <button
-                className="button button-outline"
+                className="button button-primary"
                 onClick={() => {
                   setActiveExam(null);
                   setSession(null);
                   setNotice('');
+                  setError('');
                   load();
                 }}
               >
@@ -334,7 +311,32 @@ export default function ExamPage() {
             </div>
           ) : (
             <>
-              <div className="exam-progress-track">
+              <header className="exam-focus-header">
+                <div className="exam-focus-counter">
+                  QUESTION {String(currentPosition).padStart(2, '0')}
+                  <span>/ {String(session.total_questions).padStart(2, '0')}</span>
+                </div>
+
+                {session.status === 'in_progress' && (
+                  <div
+                    className={`exam-timer exam-focus-timer${
+                      remaining === '00:00' ? ' exam-timer-ended' : ''
+                    }`}
+                    aria-label={`Time remaining ${remaining}`}
+                  >
+                    <Clock3 size={17} />
+                    <strong>{remaining}</strong>
+                  </div>
+                )}
+              </header>
+
+              <div
+                className="exam-progress-track exam-focus-progress"
+                role="progressbar"
+                aria-valuenow={currentPosition}
+                aria-valuemin={1}
+                aria-valuemax={session.total_questions}
+              >
                 <span
                   style={{
                     width: `${
@@ -345,62 +347,60 @@ export default function ExamPage() {
               </div>
 
               {question && (
-                <div className="exam-question">
-                  <div className="exam-question-number">
-                    QUESTION {String(question.position).padStart(2, '0')}
-                  </div>
-
-                  <h3>{question.prompt}</h3>
+                <div className="exam-question exam-focus-question">
+                  <h2>{question.prompt}</h2>
 
                   <div className="exam-choice-list">
-                    {(question.choices || []).map((choice) => (
-                      <button
-                        key={choice.id}
-                        type="button"
-                        className={`exam-choice${
-                          question.selected_choice_id === choice.id
-                            ? ' selected'
-                            : ''
-                        }`}
-                        onClick={() =>
-                          saveChoice(question.position, choice.id)
-                        }
-                        disabled={
-                          busy ||
-                          session.status !== 'in_progress' ||
-                          deadlineReached
-                        }
-                      >
-                        <span className="exam-choice-letter">
-                          {String(choice.id).toUpperCase()}
-                        </span>
+                    {(question.choices || []).map((choice) => {
+                      const selected =
+                        question.selected_choice_id === choice.id;
 
-                        {choice.text}
-                      </button>
-                    ))}
+                      return (
+                        <button
+                          key={choice.id}
+                          type="button"
+                          className={`exam-choice exam-focus-choice${
+                            selected ? ' selected' : ''
+                          }`}
+                          onClick={() =>
+                            saveChoice(question.position, choice.id)
+                          }
+                          disabled={
+                            busy ||
+                            session.status !== 'in_progress' ||
+                            deadlineReached
+                          }
+                          aria-pressed={selected}
+                        >
+                          <span className="exam-choice-letter">
+                            {String(choice.id).toUpperCase()}
+                          </span>
+
+                          <span className="exam-choice-text">
+                            {choice.text}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
-              <footer className="exam-controls">
+              <footer className="exam-controls exam-focus-controls">
                 <button
-                  className="button button-quiet"
+                  className="exam-nav-button exam-previous-button"
                   onClick={() =>
                     setCurrentPosition((value) => Math.max(1, value - 1))
                   }
                   disabled={currentPosition <= 1 || busy}
                 >
-                  <ArrowLeft size={16} /> Previous
+                  <ArrowLeft size={17} />
+                  Previous
                 </button>
-
-                <span className="exam-control-note">
-                  <AlertTriangle size={14} /> Leaving the page does not pause
-                  the examination.
-                </span>
 
                 {currentPosition < session.total_questions ? (
                   <button
-                    className="button button-primary"
+                    className="exam-nav-button exam-next-button"
                     onClick={() =>
                       setCurrentPosition((value) =>
                         Math.min(session.total_questions, value + 1),
@@ -408,15 +408,16 @@ export default function ExamPage() {
                     }
                     disabled={busy}
                   >
-                    Next <ArrowRight size={16} />
+                    Next
+                    <ArrowRight size={17} />
                   </button>
                 ) : (
                   <button
-                    className="button button-primary"
+                    className="exam-nav-button exam-submit-button"
                     onClick={() => submit(false)}
                     disabled={busy}
                   >
-                    <Send size={15} />
+                    <Send size={16} />
                     {busy ? 'Submitting…' : 'Submit examination'}
                   </button>
                 )}
@@ -513,13 +514,6 @@ export default function ExamPage() {
             );
           })}
         </div>
-      )}
-
-      {session?.status === 'in_progress' && (
-        <p className="operational-disclaimer">
-          <AlertTriangle size={14} /> Your answers are saved through the server.
-          The examination deadline continues even if you leave this page.
-        </p>
       )}
     </section>
   );

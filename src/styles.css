@@ -1985,3 +1985,236 @@ body { background: var(--bg); color: var(--text); }
     padding: 10px 12px;
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* BR@VO — Calm examination focus mode */
+
+.exam-focus-mode {
+  --exam-bg: #f7f8f6;
+  --exam-card: #ffffff;
+  --exam-text: #303b33;
+  --exam-muted: #7c877e;
+  --exam-border: #e5e9e4;
+  --exam-accent: #718b77;
+
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 18px 40px;
+  color: var(--exam-text);
+}
+
+.exam-focus-shell {
+  padding: clamp(20px, 4vw, 42px);
+  border: 1px solid var(--exam-border);
+  border-radius: 20px;
+  background: var(--exam-card);
+  box-shadow: 0 8px 35px rgba(42, 56, 44, 0.045);
+}
+
+.exam-focus-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.exam-focus-counter {
+  color: var(--exam-muted);
+  font-size: 0.76rem;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+}
+
+.exam-focus-counter span {
+  margin-left: 7px;
+  color: #a0aaa1;
+}
+
+.exam-focus-timer {
+  gap: 9px;
+  padding: 9px 13px;
+  border: 1px solid var(--exam-border);
+  border-radius: 10px;
+  background: #f8faf7;
+  color: var(--exam-muted);
+}
+
+.exam-focus-timer strong {
+  color: var(--exam-text);
+  font-size: 1.05rem;
+}
+
+.exam-focus-timer.exam-timer-ended strong {
+  color: #b65e58;
+}
+
+.exam-focus-progress {
+  height: 4px;
+  margin-bottom: 38px;
+  background: #edf0eb;
+}
+
+.exam-focus-progress span {
+  background: var(--exam-accent);
+}
+
+.exam-focus-question {
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.exam-focus-question h2 {
+  margin: 0 0 32px;
+  color: var(--exam-text);
+  font-size: clamp(1.2rem, 2.5vw, 1.55rem);
+  font-weight: 550;
+  line-height: 1.8;
+}
+
+.exam-focus-choice {
+  min-height: 66px;
+  gap: 17px;
+  padding: 15px 18px;
+  border: 1px solid var(--exam-border);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--exam-text);
+  font-size: 0.96rem;
+  font-weight: 450;
+  box-shadow: none;
+}
+
+.exam-focus-choice:hover:not(:disabled) {
+  border-color: #a6b7a8;
+  background: #fafbf9;
+  transform: none;
+}
+
+.exam-focus-choice.selected {
+  border: 1.5px solid var(--exam-accent);
+  background: #f0f4ef;
+}
+
+.exam-focus-choice .exam-choice-letter {
+  flex-basis: 34px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #e3e8e2;
+  border-radius: 9px;
+  background: #f7f8f6;
+  color: #66766a;
+}
+
+.exam-focus-choice.selected .exam-choice-letter {
+  border-color: var(--exam-accent);
+  background: var(--exam-accent);
+  color: white;
+}
+
+.exam-choice-text {
+  flex: 1;
+  line-height: 1.65;
+}
+
+.exam-focus-controls {
+  justify-content: space-between;
+  margin-top: 36px;
+  padding-top: 22px;
+  border-top: 1px solid #edf0ec;
+}
+
+.exam-nav-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 0 19px;
+  border: 1px solid var(--exam-border);
+  border-radius: 10px;
+  background: white;
+  color: #657268;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.exam-nav-button:hover:not(:disabled) {
+  border-color: #b5c2b5;
+  background: #f7f9f6;
+}
+
+.exam-nav-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.exam-next-button,
+.exam-submit-button {
+  border-color: var(--exam-accent);
+  background: var(--exam-accent);
+  color: white;
+}
+
+.exam-next-button:hover:not(:disabled),
+.exam-submit-button:hover:not(:disabled) {
+  border-color: #617c67;
+  background: #617c67;
+}
+
+.exam-result-card {
+  border-color: var(--exam-border);
+  background: white;
+}
+
+@media (max-width: 600px) {
+  .exam-focus-mode {
+    padding: 12px 8px 28px;
+  }
+
+  .exam-focus-shell {
+    padding: 20px 16px;
+    border-radius: 14px;
+  }
+
+  .exam-focus-progress {
+    margin-bottom: 28px;
+  }
+
+  .exam-focus-question h2 {
+    margin-bottom: 24px;
+    line-height: 1.7;
+  }
+
+  .exam-focus-choice {
+    min-height: 60px;
+    padding: 12px;
+  }
+
+  .exam-focus-controls {
+    gap: 10px;
+    margin-top: 26px;
+  }
+
+  .exam-nav-button {
+    flex: 1;
+    padding: 0 10px;
+  }
+}
