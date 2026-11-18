@@ -863,7 +863,7 @@ export default function CompetitionPage() {
                               color: '#f5f7fb',
                             }}
                           >
-                            Atenaf
+                            Hundesa Tesfa Jufar
                           </div>
                         </div>
 
@@ -891,8 +891,8 @@ export default function CompetitionPage() {
                             }}
                           >
                             {selectedMethod === 'cbe_birr'
-                              ? '1000516132837'
-                              : '0900000000'}
+                              ? '1000658206692'
+                              : '0978097201'}
                           </div>
                         </div>
                       </div>
