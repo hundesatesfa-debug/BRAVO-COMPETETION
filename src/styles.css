@@ -3,53 +3,53 @@
 
 /* =========================================================
    BR@VO — DESIGN SYSTEM
-   Calm sage green · Warm off-white · Soft charcoal
+   Bright academic blue · Cool off-white · Deep navy
    ========================================================= */
 
 :root {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color: #303b34;
-  background: #f7f8f5;
+  color: #172b4d;
+  background: #f4f8fd;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --bg: #f7f8f5;
+  --bg: #f4f8fd;
   --bg-raised: #ffffff;
-  --bg-soft: #eff3ed;
-  --bg-muted: #e8eee7;
+  --bg-soft: #f0f6ff;
+  --bg-muted: #e7f0fb;
 
   --surface: #ffffff;
-  --surface-soft: #f5f7f3;
+  --surface-soft: #f7faff;
 
-  --text: #303b34;
-  --text-strong: #253229;
-  --text-muted: #78847a;
-  --text-light: #9aa49b;
+  --text: #34445c;
+  --text-strong: #172b4d;
+  --text-muted: #718096;
+  --text-light: #9aa9bd;
 
-  --primary: #718b77;
-  --primary-dark: #526e59;
-  --primary-deep: #405b47;
-  --primary-light: #e6eee5;
-  --primary-soft: #f0f5ef;
+  --primary: #2584f5;
+  --primary-dark: #126bdc;
+  --primary-deep: #1557ad;
+  --primary-light: #e6f2ff;
+  --primary-soft: #f1f7ff;
 
-  --border: #e3e9e1;
-  --border-strong: #d4ded3;
+  --border: #e3ebf5;
+  --border-strong: #d2deed;
 
-  --success: #477b58;
-  --success-light: #e8f3e9;
+  --success: #21865b;
+  --success-light: #e8f7ef;
   --warning: #a97835;
   --warning-light: #fbf1df;
   --danger: #b75e59;
   --danger-light: #faeae8;
-  --info: #557b8c;
-  --info-light: #e9f1f5;
+  --info: #367fae;
+  --info-light: #eaf4fc;
 
-  --shadow-xs: 0 1px 2px rgba(37, 50, 41, 0.04);
-  --shadow-sm: 0 3px 12px rgba(37, 50, 41, 0.045);
-  --shadow-md: 0 8px 24px rgba(37, 50, 41, 0.07);
-  --shadow-lg: 0 16px 40px rgba(37, 50, 41, 0.09);
+  --shadow-xs: 0 1px 2px rgba(35, 75, 125, 0.045);
+  --shadow-sm: 0 3px 12px rgba(35, 75, 125, 0.055);
+  --shadow-md: 0 8px 24px rgba(35, 75, 125, 0.075);
+  --shadow-lg: 0 16px 40px rgba(35, 75, 125, 0.10);
 
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -176,12 +176,12 @@ blockquote {
 }
 
 ::selection {
-  background: #dce9dc;
+  background: #dcecff;
   color: var(--text-strong);
 }
 
 :focus-visible {
-  outline: 3px solid rgba(113, 139, 119, 0.3);
+  outline: 3px solid rgba(37, 132, 245, 0.30);
   outline-offset: 3px;
 }
 
@@ -378,7 +378,7 @@ blockquote {
   color: #fff;
   font-size: 1rem;
   font-weight: 800;
-  box-shadow: 0 4px 10px rgba(82, 110, 89, 0.18);
+  box-shadow: 0 4px 10px rgba(18, 107, 220, 0.18);
 }
 
 .brand-academy {
@@ -563,14 +563,14 @@ blockquote {
   border-color: var(--primary);
   background: var(--primary);
   color: #fff;
-  box-shadow: 0 3px 8px rgba(82, 110, 89, 0.13);
+  box-shadow: 0 3px 8px rgba(18, 107, 220, 0.13);
 }
 
 .button-primary:hover:not(:disabled) {
   border-color: var(--primary-dark);
   background: var(--primary-dark);
   color: #fff;
-  box-shadow: 0 5px 13px rgba(82, 110, 89, 0.18);
+  box-shadow: 0 5px 13px rgba(18, 107, 220, 0.18);
 }
 
 .button-small {
@@ -849,7 +849,7 @@ textarea::placeholder {
 .auth-form select:focus,
 .auth-form textarea:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(113, 139, 119, 0.12);
+  box-shadow: 0 0 0 3px rgba(37, 132, 245, 0.12);
 }
 
 .field-hint {
@@ -1490,7 +1490,7 @@ textarea::placeholder {
   width: 400px;
   height: 400px;
   border-radius: 50%;
-  background: rgba(113, 139, 119, 0.12);
+  background: rgba(37, 132, 245, 0.12);
   filter: blur(30px);
 }
 
@@ -2789,6 +2789,275 @@ textarea::placeholder {
   *::before,
   *::after {
     scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* =========================================================
+   BR@VO VISUAL REFINEMENT LAYER — 2026
+   Additive overrides only. Original components and layouts
+   above are intentionally preserved.
+   ========================================================= */
+
+:root {
+  --bravo-blue: #2584f5;
+  --bravo-blue-deep: #126bdc;
+  --bravo-blue-soft: #e6f2ff;
+  --bravo-navy: #172b4d;
+  --bravo-canvas: #f4f8fd;
+  --bravo-card: #ffffff;
+  --bravo-line: #e3ebf5;
+  --bravo-focus: rgba(37, 132, 245, 0.16);
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  overflow-x: hidden;
+  background-color: var(--bg);
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-color: var(--primary);
+  outline-offset: 3px;
+}
+
+/* Give the existing shell a more spacious, app-like finish. */
+.app-shell {
+  background: var(--bg);
+}
+
+.app-sidebar {
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 1px 0 0 rgba(28, 65, 110, 0.025);
+}
+
+.sidebar-nav a,
+.sidebar-nav button {
+  border-radius: 12px;
+}
+
+.sidebar-nav a.active,
+.sidebar-nav button.active,
+.sidebar-nav a[aria-current="page"] {
+  background: var(--primary-light);
+  color: var(--primary-deep);
+}
+
+.dashboard-topbar {
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom-color: var(--border);
+}
+
+.dashboard-content {
+  min-width: 0;
+}
+
+/* Consistent soft card treatment without changing component geometry. */
+.card,
+.panel,
+.admin-panel,
+.course-card,
+.learning-card,
+.exam-panel,
+.question-card,
+.study-card,
+.wallet-card {
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.card:hover,
+.course-card:hover,
+.learning-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.button-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.button-primary:hover:not(:disabled) {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+.competition-input:focus,
+.auth-form input:focus,
+.auth-form select:focus,
+.auth-form textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--bravo-focus);
+}
+
+/* Prevent long content from forcing horizontal page overflow. */
+.dashboard-main,
+.dashboard-content,
+.operational-page,
+.admin-panel,
+.panel,
+.card,
+.course-card,
+.learning-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Tables remain usable on phones through their existing wrappers. */
+.table-wrap,
+.table-container,
+.admin-table-wrap,
+.admin-table-container {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+table {
+  max-width: 100%;
+}
+
+/* Better touch targets while preserving existing button sizes on desktop. */
+@media (max-width: 760px) {
+  .app-sidebar {
+    box-shadow: 0 3px 14px rgba(35, 75, 125, 0.045);
+  }
+
+  .sidebar-nav a,
+  .sidebar-nav button {
+    min-height: 42px;
+  }
+
+  .dashboard-topbar {
+    z-index: 25;
+  }
+
+  .dashboard-content,
+  .operational-page {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  .section-heading,
+  .dashboard-section-heading {
+    gap: 12px;
+  }
+
+  .header-actions,
+  .topbar-right {
+    flex-wrap: wrap;
+  }
+
+  .button,
+  .icon-button {
+    touch-action: manipulation;
+  }
+
+  .modal,
+  .dialog,
+  [role="dialog"] {
+    max-width: calc(100vw - 24px);
+  }
+}
+
+@media (max-width: 480px) {
+  .app-sidebar {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .sidebar-nav {
+    scrollbar-width: none;
+  }
+
+  .sidebar-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .dashboard-topbar {
+    gap: 10px;
+  }
+
+  .dashboard-content,
+  .operational-page {
+    padding-right: max(13px, env(safe-area-inset-right));
+    padding-bottom: calc(28px + env(safe-area-inset-bottom));
+    padding-left: max(13px, env(safe-area-inset-left));
+  }
+
+  .admin-panel,
+  .panel,
+  .card {
+    border-radius: 15px;
+  }
+
+  .admin-panel-header,
+  .section-heading,
+  .dashboard-section-heading {
+    gap: 10px;
+  }
+
+  .header-actions > .button,
+  .section-heading > .button,
+  .dashboard-section-heading > .button {
+    max-width: 100%;
+  }
+
+  .level-options,
+  .stream-options {
+    min-width: 0;
+  }
+
+  .auth-screen,
+  .auth-panel,
+  .auth-card {
+    min-width: 0;
+  }
+}
+
+/* Safe-area support for modern phones. */
+@supports (padding: max(0px)) {
+  .site-header {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+}
+
+/* Respect users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
